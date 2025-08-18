@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  ai-work-os:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      - API_KEY=${API_KEY}
+      - RAG_TOP_K=${RAG_TOP_K:-6}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:8000}
+      - DEBUG=${DEBUG:-false}
+      - DB_URL=sqlite:///./data/app.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/healthz', timeout=10)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  data:
+    driver: local

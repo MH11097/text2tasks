@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Work OS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .content {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .section {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .section h2 {
+            margin-bottom: 15px;
+            color: #444;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        textarea, input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5a6fd8;
+        }
+        
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .tasks-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .tasks-table th, .tasks-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tasks-table th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-new { background: #e3f2fd; color: #1976d2; }
+        .status-in_progress { background: #fff3e0; color: #f57c00; }
+        .status-blocked { background: #ffebee; color: #d32f2f; }
+        .status-done { background: #e8f5e8; color: #388e3c; }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .api-key-input {
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Work OS</h1>
+            <p>Hệ thống quản lý công việc thông minh</p>
+        </div>
+        
+        <div class="content">
+            <div class="section full-width">
+                <div class="api-key-input">
+                    <label for="apiKey">API Key:</label>
+                    <input type="password" id="apiKey" placeholder="Nhập API key của bạn">
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>📄 Nhập Tài Liệu</h2>
+                <form id="ingestForm">
+                    <div class="form-group">
+                        <label for="text">Nội dung:</label>
+                        <textarea id="text" placeholder="Dán nội dung email, ghi chú cuộc họp, hoặc văn bản khác..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="source">Nguồn:</label>
+                        <select id="source">
+                            <option value="email">Email</option>
+                            <option value="meeting">Cuộc họp</option>
+                            <option value="note">Ghi chú</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <button type="submit">Xử lý tài liệu</button>
+                </form>
+                <div id="ingestResponse" class="response" style="display: none;"></div>
+            </div>
+            
+            <div class="section">
+                <h2>❓ Hỏi đáp</h2>
+                <form id="askForm">
+                    <div class="form-group">
+                        <label for="question">Câu hỏi:</label>
+                        <textarea id="question" placeholder="Trạng thái dự án X như thế nào? Ai phụ trách task Y?"></textarea>
+                    </div>
+                    <button type="submit">Hỏi</button>
+                </form>
+                <div id="askResponse" class="response" style="display: none;"></div>
+            </div>
+            
+            <div class="section full-width">
+                <h2>📋 Danh sách Task</h2>
+                <div style="margin-bottom: 15px;">
+                    <label for="statusFilter">Lọc theo trạng thái:</label>
+                    <select id="statusFilter">
+                        <option value="">Tất cả</option>
+                        <option value="new">Mới</option>
+                        <option value="in_progress">Đang thực hiện</option>
+                        <option value="blocked">Bị block</option>
+                        <option value="done">Hoàn thành</option>
+                    </select>
+                    <button onclick="loadTasks()">Tải danh sách</button>
+                    <button onclick="loadStatus()">Xem tổng quan</button>
+                </div>
+                <div id="tasksContainer"></div>
+                <div id="statusContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        function getApiKey() {
+            return document.getElementById('apiKey').value;
+        }
+        
+        function getHeaders() {
+            const apiKey = getApiKey();
+            return {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey
+            };
+        }
+        
+        function showResponse(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = content;
+            element.className = `response ${isError ? 'error' : 'success'}`;
+            element.style.display = 'block';
+        }
+        
+        // Ingest form handler
+        document.getElementById('ingestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const text = document.getElementById('text').value;
+            const source = document.getElementById('source').value;
+            
+            if (!text.trim()) {
+                showResponse('ingestResponse', 'Vui lòng nhập nội dung', true);
+                return;
+            }
+            
+            if (!getApiKey()) {
+                showResponse('ingestResponse', 'Vui lòng nhập API key', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/ingest`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ text, source })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const formatted = `Document ID: ${result.document_id}\n\nTóm tắt:\n${result.summary}\n\nActions (${result.actions.length}):\n${result.actions.map(a => `- ${a.title}${a.owner ? ` (${a.owner})` : ''}${a.due ? ` [${a.due}]` : ''}`).join('\n')}`;
+                    showResponse('ingestResponse', formatted);
+                    
+                    // Clear form
+                    document.getElementById('text').value = '';
+                    
+                    // Reload tasks
+                    loadTasks();
+                } else {
+                    showResponse('ingestResponse', result.detail || 'Lỗi xử lý tài liệu', true);
+                }
+            } catch (error) {
+                showResponse('ingestResponse', `Lỗi: ${error.message}`, true);
+            }
+        });
+        
+        // Ask form handler
+        document.getElementById('askForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const question = document.getElementById('question').value;
+            
+            if (!question.trim()) {
+                showResponse('askResponse', 'Vui lòng nhập câu hỏi', true);
+                return;
+            }
+            
+            if (!getApiKey()) {
+                showResponse('askResponse', 'Vui lòng nhập API key', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/ask`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ question })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const formatted = `Trả lời:\n${result.answer}\n\nTài liệu tham khảo: ${result.refs.join(', ')}\n\nGợi ý tiếp theo:\n${result.suggested_next_steps.map(s => `- ${s}`).join('\n')}`;
+                    showResponse('askResponse', formatted);
+                } else {
+                    showResponse('askResponse', result.detail || 'Lỗi xử lý câu hỏi', true);
+                }
+            } catch (error) {
+                showResponse('askResponse', `Lỗi: ${error.message}`, true);
+            }
+        });
+        
+        // Load tasks
+        async function loadTasks() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const params = statusFilter ? `?status=${statusFilter}` : '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks${params}`);
+                const tasks = await response.json();
+                
+                if (response.ok) {
+                    renderTasks(tasks);
+                } else {
+                    document.getElementById('tasksContainer').innerHTML = `<p class="error">Lỗi tải tasks: ${tasks.detail}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('tasksContainer').innerHTML = `<p class="error">Lỗi: ${error.message}</p>`;
+            }
+        }
+        
+        function renderTasks(tasks) {
+            if (tasks.length === 0) {
+                document.getElementById('tasksContainer').innerHTML = '<p>Chưa có task nào.</p>';
+                return;
+            }
+            
+            const html = `
+                <table class="tasks-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tiêu đề</th>
+                            <th>Trạng thái</th>
+                            <th>Hạn</th>
+                            <th>Phụ trách</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tasks.map(task => `
+                            <tr>
+                                <td>${task.id}</td>
+                                <td>${task.title}</td>
+                                <td><span class="status-badge status-${task.status}">${getStatusText(task.status)}</span></td>
+                                <td>${task.due_date || '-'}</td>
+                                <td>${task.owner || '-'}</td>
+                                <td>
+                                    <select onchange="updateTaskStatus('${task.id}', this.value)">
+                                        <option value="">Chọn trạng thái</option>
+                                        <option value="new" ${task.status === 'new' ? 'disabled' : ''}>Mới</option>
+                                        <option value="in_progress" ${task.status === 'in_progress' ? 'disabled' : ''}>Đang thực hiện</option>
+                                        <option value="blocked" ${task.status === 'blocked' ? 'disabled' : ''}>Bị block</option>
+                                        <option value="done" ${task.status === 'done' ? 'disabled' : ''}>Hoàn thành</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('tasksContainer').innerHTML = html;
+        }
+        
+        function getStatusText(status) {
+            const statusMap = {
+                'new': 'Mới',
+                'in_progress': 'Đang thực hiện', 
+                'blocked': 'Bị block',
+                'done': 'Hoàn thành'
+            };
+            return statusMap[status] || status;
+        }
+        
+        // Update task status
+        async function updateTaskStatus(taskId, newStatus) {
+            if (!newStatus || !getApiKey()) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                    method: 'PATCH',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                if (response.ok) {
+                    loadTasks(); // Reload tasks
+                } else {
+                    const error = await response.json();
+                    alert(`Lỗi cập nhật: ${error.detail}`);
+                }
+            } catch (error) {
+                alert(`Lỗi: ${error.message}`);
+            }
+        }
+        
+        // Load status
+        async function loadStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const status = await response.json();
+                
+                if (response.ok) {
+                    const html = `
+                        <div class="success">
+                            <h3>Tổng quan hệ thống</h3>
+                            <p>${status.summary}</p>
+                            <br>
+                            <strong>Thống kê:</strong>
+                            <ul>
+                                <li>Mới: ${status.counts.new}</li>
+                                <li>Đang thực hiện: ${status.counts.in_progress}</li>
+                                <li>Bị block: ${status.counts.blocked}</li>
+                                <li>Hoàn thành: ${status.counts.done}</li>
+                            </ul>
+                        </div>
+                    `;
+                    document.getElementById('statusContainer').innerHTML = html;
+                } else {
+                    document.getElementById('statusContainer').innerHTML = `<p class="error">Lỗi tải trạng thái: ${status.detail}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('statusContainer').innerHTML = `<p class="error">Lỗi: ${error.message}</p>`;
+            }
+        }
+        
+        // Load tasks on page load
+        loadTasks();
+        loadStatus();
+    </script>
+</body>
+</html>
