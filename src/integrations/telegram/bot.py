@@ -41,11 +41,18 @@ class TelegramBot:
             self.application.add_handler(CommandHandler("tasks", self.tasks_command))
             self.application.add_handler(CommandHandler("ask", self.ask_command))
             self.application.add_handler(CommandHandler("status", self.status_command))
+            self.application.add_handler(CommandHandler("done", self.mark_done_command))
+            self.application.add_handler(CommandHandler("progress", self.mark_progress_command))
+            self.application.add_handler(CommandHandler("block", self.mark_blocked_command))
             
             # Handle text messages (auto-extract tasks)
             self.application.add_handler(
                 MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message)
             )
+            
+            # Handle callback queries for inline buttons
+            from telegram.ext import CallbackQueryHandler
+            self.application.add_handler(CallbackQueryHandler(self.handle_callback_query))
             
             logger.info("Telegram bot initialized successfully")
             
@@ -62,7 +69,8 @@ Chào mừng! Bot này giúp bạn quản lý công việc thông minh.
 
 **Lệnh có sẵn:**
 • `/add <text>` - Tạo tasks từ văn bản
-• `/tasks` - Xem danh sách tasks
+• `/tasks` - Xem danh sách tasks (có số thứ tự)
+• `/done <số>` - Hoàn thành task
 • `/ask <question>` - Hỏi đáp về documents
 • `/status` - Tổng quan hệ thống
 • `/help` - Hướng dẫn chi tiết
@@ -101,13 +109,17 @@ Chỉ cần gửi tin nhắn bất kỳ, bot sẽ tự động phân tích và t
   Tạo tasks từ văn bản cụ thể
   
 • `/tasks [status]`
-  Xem tasks (all/new/in_progress/done/blocked)
+  Xem tasks (all/new/progress/done/blocked)
   
 • `/ask <câu hỏi>`
   Hỏi đáp về documents đã lưu
   
 • `/status`
   Xem tổng quan tasks và hệ thống
+  
+• `/done <số>` - Đánh dấu task hoàn thành
+• `/progress <số>` - Đánh dấu task đang làm  
+• `/block <số>` - Đánh dấu task bị block
 
 **3. Tính năng thông minh:**
 ✅ Tự động nhận diện người làm
@@ -176,12 +188,12 @@ Chỉ cần gửi tin nhắn bất kỳ, bot sẽ tự động phân tích và t
                 "done": "✅"
             }
             
-            for task in user_tasks[:10]:  # Show max 10
+            for i, task in enumerate(user_tasks[:10], 1):  # Show max 10 with numbers
                 emoji = status_emoji.get(task["status"], "📌")
                 owner = f"👤 {task['owner']}" if task["owner"] else ""
                 due = f"📅 {task['due_date']}" if task["due_date"] else ""
                 
-                message += f"{emoji} **{task['title']}**\n"
+                message += f"{i}. {emoji} **{task['title']}**\n"
                 if owner or due:
                     message += f"   {owner} {due}\n"
                 message += "\n"
@@ -214,8 +226,11 @@ Chỉ cần gửi tin nhắn bất kỳ, bot sẽ tự động phân tích và t
                 source_type_filter=SourceType.TELEGRAM
             )
             
-            # Filter docs from this user  
-            user_docs = [doc for doc in relevant_docs if doc.get("source_id") == user_id]
+            # Filter docs from this user
+            user_docs = []
+            for doc in relevant_docs:
+                if doc.get("source_id") == user_id:
+                    user_docs.append(doc)
             
             if not user_docs:
                 await update.message.reply_text("🤷‍♂️ Không tìm thấy thông tin liên quan trong dữ liệu của bạn.")
@@ -288,6 +303,71 @@ Chỉ cần gửi tin nhắn bất kỳ, bot sẽ tự động phân tích và t
             return
         
         await self._process_user_text(update, text)
+    
+    async def mark_done_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /done command to mark task as completed"""
+        await self._update_task_status(update, context, "done", "✅ Đã đánh dấu task hoàn thành!")
+    
+    async def mark_progress_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /progress command to mark task as in progress"""
+        await self._update_task_status(update, context, "in_progress", "⏳ Đã đánh dấu task đang thực hiện!")
+    
+    async def mark_blocked_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /block command to mark task as blocked"""
+        await self._update_task_status(update, context, "blocked", "🚫 Đã đánh dấu task bị block!")
+    
+    async def _update_task_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, status: str, success_msg: str):
+        """Helper to update task status by task number"""
+        if not context.args:
+            await update.message.reply_text(f"❌ Cần cung cấp số thứ tự task.\n\nVí dụ: `/{status.replace('_', '')} 1`")
+            return
+        
+        try:
+            task_number = int(context.args[0])
+            user_id = str(update.effective_user.id)
+            user_tasks = await self._get_user_tasks(user_id)
+            
+            if task_number < 1 or task_number > len(user_tasks):
+                await update.message.reply_text(f"❌ Task số {task_number} không tồn tại. Dùng `/tasks` để xem danh sách.")
+                return
+            
+            task = user_tasks[task_number - 1]
+            task_id = int(task["id"])
+            
+            # Update task
+            await self.task_service.update_task(task_id=task_id, status=status)
+            
+            await update.message.reply_text(f"{success_msg}\n\n📝 **{task['title']}**")
+            
+        except ValueError:
+            await update.message.reply_text("❌ Số task không hợp lệ.")
+        except Exception as e:
+            logger.error(f"Task status update failed: {e}")
+            await update.message.reply_text("❌ Lỗi khi cập nhật task.")
+    
+    async def handle_callback_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle inline button callbacks"""
+        query = update.callback_query
+        await query.answer()
+        
+        try:
+            # Parse callback data: action_taskid
+            action, task_id = query.data.split('_', 1)
+            task_id = int(task_id)
+            
+            if action == "done":
+                await self.task_service.update_task(task_id=task_id, status="done")
+                await query.edit_message_text("✅ Task đã hoàn thành!")
+            elif action == "progress":
+                await self.task_service.update_task(task_id=task_id, status="in_progress")
+                await query.edit_message_text("⏳ Task đang thực hiện!")
+            elif action == "block":
+                await self.task_service.update_task(task_id=task_id, status="blocked")
+                await query.edit_message_text("🚫 Task bị block!")
+                
+        except Exception as e:
+            logger.error(f"Callback query failed: {e}")
+            await query.edit_message_text("❌ Lỗi khi cập nhật task.")
     
     async def _process_user_text(self, update: Update, text: str):
         """
