@@ -1,15 +1,23 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+import uuid
+import time
 
 from .database import create_tables
 from .config import settings
+from .logging_config import setup_logging, get_logger
 from .routes import health, ingest, ask, tasks, status
+
+# Setup structured logging
+setup_logging()
+logger = get_logger(__name__)
 
 # Create tables on startup
 create_tables()
+logger.info("Database tables created successfully")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -17,6 +25,44 @@ app = FastAPI(
     description="Minimal AI Work OS for document ingestion, task extraction, and Q&A",
     version="0.1.0"
 )
+
+# Request logging middleware
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    # Generate request ID
+    request_id = str(uuid.uuid4())
+    
+    # Log request start
+    start_time = time.time()
+    logger.info(
+        "Request started",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "url": str(request.url),
+            "client_host": request.client.host if request.client else None,
+        }
+    )
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Log request completion
+    process_time = time.time() - start_time
+    logger.info(
+        "Request completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "url": str(request.url),
+            "status_code": response.status_code,
+            "process_time": round(process_time, 4),
+        }
+    )
+    
+    # Add request ID to response headers
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 # CORS middleware
 app.add_middleware(

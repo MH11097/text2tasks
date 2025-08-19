@@ -6,9 +6,11 @@ from ..database import get_db_session, Document, Embedding, Task
 from ..schemas import IngestRequest, IngestResponse, ActionItem
 from ..llm_client import LLMClient
 from ..config import settings
+from ..logging_config import get_logger
 
 router = APIRouter()
 llm_client = LLMClient()
+logger = get_logger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     if x_api_key != settings.api_key:
