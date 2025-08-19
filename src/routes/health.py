@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import httpx
+import time
 from datetime import datetime
 from typing import Dict, Any
 
@@ -90,3 +91,25 @@ async def detailed_health_check(request: Request, db: Session = Depends(get_db_s
         raise HTTPException(status_code=503, detail=health_status)
     
     return health_status
+
+@router.get("/health/ready")
+@health_endpoint_limit()
+async def readiness_check(request: Request, db: Session = Depends(get_db_session)) -> Dict[str, Any]:
+    """Kubernetes readiness probe endpoint"""
+    try:
+        # Quick database check
+        db.execute(text("SELECT 1")).fetchone()
+        return {"status": "ready", "timestamp": datetime.utcnow().isoformat() + "Z"}
+    except Exception as e:
+        logger.error("Readiness check failed", extra={"error": str(e)})
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "error": str(e)})
+
+@router.get("/health/live")
+@health_endpoint_limit()
+async def liveness_check(request: Request) -> Dict[str, Any]:
+    """Kubernetes liveness probe endpoint"""
+    return {
+        "status": "alive",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "uptime": time.time()
+    }

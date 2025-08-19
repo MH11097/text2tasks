@@ -1,0 +1,73 @@
+# Security-focused Dockerfile with scanning and hardening
+# Build stage
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Update and install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt \
+    && find /root/.local -type f -name "*.pyc" -delete \
+    && find /root/.local -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+# Security scanning stage
+FROM aquasec/trivy:latest as security-scanner
+COPY --from=builder /app /scan-target
+RUN trivy fs --exit-code 1 --no-progress --severity HIGH,CRITICAL /scan-target
+
+# Production stage - distroless for maximum security
+FROM gcr.io/distroless/python3-debian12:nonroot
+
+# Set working directory
+WORKDIR /app
+
+# Copy Python packages from builder stage
+COPY --from=builder /root/.local /home/nonroot/.local
+
+# Copy application code with proper ownership
+COPY --chown=nonroot:nonroot src/ ./src/
+COPY --chown=nonroot:nonroot static/ ./static/
+
+# Create directory for SQLite database
+USER root
+RUN mkdir -p /app/data && chown nonroot:nonroot /app/data
+USER nonroot
+
+# Environment variables for security
+ENV PYTHONPATH=/app
+ENV PATH=/home/nonroot/.local/bin:$PATH
+ENV DB_URL=sqlite:///./data/app.db
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONHASHSEED=random
+
+# Security and metadata labels
+LABEL \
+    org.opencontainers.image.title="AI Work OS (Security Hardened)" \
+    org.opencontainers.image.description="Security-hardened AI Work OS for production deployment" \
+    org.opencontainers.image.vendor="AI Work OS Team" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.version="1.0.0" \
+    org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    org.opencontainers.image.source="https://github.com/your-org/ai-work-os" \
+    security.scan.enabled="true" \
+    security.distroless="true" \
+    security.nonroot="true"
+
+# Expose port
+EXPOSE 8000
+
+# Health check using Python's urllib (no external dependencies)
+HEALTHCHECK --interval=30s --timeout=30s --start-period=15s --retries=3 \
+    CMD ["/usr/bin/python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=10)"]
+
+# Run the application
+ENTRYPOINT ["/usr/bin/python3", "-m", "uvicorn"]
+CMD ["src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

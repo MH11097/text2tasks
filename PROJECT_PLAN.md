@@ -174,42 +174,54 @@ text2tasks/
 
 ---
 
-### 🚀 Phase 3: Feature Enhancement (2-4 tuần)
-**Mục tiêu**: Mở rộng tính năng core cho user experience tốt hơn
+### 🚀 Phase 3: Multi-Source Integration & Telegram Bot (3-4 tuần)
+**Mục tiêu**: Mở rộng từ web interface sang multi-channel platform với Telegram bot và email parsing
 
-1. **Data Management**
-   - Bulk document import (CSV, JSON)
-   - Export functionality (JSON, CSV, PDF reports)
-   - Document versioning & history
-   - Soft delete với recovery
-   - Data backup & restore
+1. **Multi-Source Input Architecture**
+   ```
+   Telegram Bot ──┐
+   Email Parser ──┼──→ Message Queue ──→ Processing Engine ──→ Database
+   Web Interface ─┘                      (Background Tasks)     (Existing)
+   ```
 
-2. **Advanced Task Features**
-   - Task dependencies (blocked by, depends on)
-   - Recurring tasks từ templates
-   - Task priority levels
-   - Comments & notes trên tasks
-   - Task assignment notifications
+2. **Telegram Bot Integration**
+   - Bot commands: `/ingest <text>`, `/ask <question>`, `/tasks`, `/status`
+   - Interactive keyboards cho task management
+   - Real-time progress indicators
+   - Context preservation for conversations
+   - Telegram MCP Server configuration
 
-3. **AI Improvements**
-   - Context ranking với relevance scoring
-   - Custom extraction templates theo domain
-   - Multi-document summarization
-   - Trend analysis từ historical data
-   - Suggestion engine cho similar tasks
+3. **Email Integration**
+   - IMAP monitor cho designated inboxes
+   - Email content extraction & cleaning
+   - Attachment processing (PDF, DOCX)
+   - Subject line parsing for priority/category
+   - Sender-based routing rules
 
-4. **Integration Capabilities**
-   - Webhook notifications cho task changes
-   - REST API mở rộng cho third-party
-   - Email parsing integration
-   - Calendar sync (Google Calendar, Outlook)
-   - Slack/Teams bot integration
+4. **Background Processing System**
+   - Redis message queue với Celery workers
+   - Async processing cho multi-source inputs
+   - Background task framework
+   - Message routing & processing pipeline
+
+5. **Database Schema Extensions**
+   - Multi-source tracking (source_type, source_id, metadata)
+   - Message queue table cho tracking
+   - Cross-platform data synchronization
+   - Performance optimization
+
+**Technical Requirements**:
+- Telegram MCP Server tại `/Users/minhhieu/Library/CloudStorage/OneDrive-Personal/Coding/Python/mcp/telegram-mcp`
+- New dependencies: python-telegram-bot, celery, redis, email-parser
+- Environment config: TELEGRAM_BOT_TOKEN, EMAIL_IMAP_SERVER, REDIS_URL
+- Database migrations cho multi-source schema
 
 **Deliverables**:
-- Feature specification docs
-- Integration guides
-- API documentation mở rộng
-- User workflow examples
+- Functional Telegram bot với core commands
+- Email parser service for automated ingestion
+- Background task system for async processing
+- Multi-channel documentation và usage examples
+- Updated database schema supporting multi-source
 
 ---
 
@@ -377,16 +389,38 @@ Basic LLM → Fine-tuned Models → Multi-agent System
    - CI/CD pipeline setup
    - Backup strategies
 
-### 🚀 THÁNG 1-2 (Phase 3 bắt đầu)
-6. **Feature Expansions**
-   - Bulk import functionality
-   - Advanced task dependencies
-   - Export capabilities
+### 🚀 THÁNG 1 (Phase 3 - Multi-Source Integration)
 
-7. **Integration Development**
-   - Email parsing integration
-   - Webhook system
-   - API extensions
+#### ✅ HOÀN THÀNH (19/08/2025)
+1. **Project Planning & Documentation**
+   - ✅ Updated PROJECT_PLAN.md với Phase 3 detailed specifications
+   - ✅ Added Telegram MCP configuration tại settings.local.json
+   - ✅ Extended database schema cho multi-source support (Document + MessageQueue)
+   - ✅ Updated dependencies với Telegram & async processing tools
+
+#### 🔄 ĐANG THỰC HIỆN
+2. **Core Infrastructure Setup**
+   - 🔄 Background task framework với Celery
+   - ⏳ Message queue processing system
+   - ⏳ Environment configuration cho new services
+
+#### 📋 KẾ HOẠCH TIẾP THEO (Tuần tới)
+3. **Telegram Bot Implementation**
+   - ⏳ Telegram webhook endpoint
+   - ⏳ Bot commands: `/ingest`, `/ask`, `/tasks`, `/status`
+   - ⏳ Interactive keyboards và progress indicators
+   - ⏳ Context preservation cho conversations
+
+4. **Email Integration**
+   - ⏳ Email parser service architecture
+   - ⏳ IMAP monitoring setup
+   - ⏳ Email content processing pipeline
+
+5. **Integration & Testing**
+   - ⏳ Multi-channel routing system
+   - ⏳ Cross-platform data synchronization
+   - ⏳ Integration documentation
+   - ⏳ End-to-end testing
 
 ### 📈 Timeline Summary
 - **Week 1-2**: Production optimization

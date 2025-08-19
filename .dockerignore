@@ -1,0 +1,113 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Database files (for development)
+*.db
+*.sqlite
+*.sqlite3
+app.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Performance testing results
+tests/performance/results/
+*.html
+*.csv
+
+# AI Assistant files (as per CLAUDE.md policy)
+.claude/
+.serena/
+CLAUDE.md
+*.ai-*
+*-ai.*
+.ai/
+*.claude
+*.serena
+
+# Docker
+Dockerfile.*
+docker-compose.override.yml
+docker-compose.*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Node modules (if any)
+node_modules/
+
+# Data directory
+data/
+
+# Backup files
+*.bak
+*.backup
