@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy.orm import Session
 from typing import Optional
 
-from ..database import get_db_session, Document, Embedding, Task
 from ..schemas import IngestRequest, IngestResponse, ActionItem
-from ..llm_client import LLMClient
+from ..services.document_service import DocumentService
+from ..core.types import SourceType, ProcessingResult
+from ..core.exceptions import ValidationException, LLMException
 from ..config import settings
 from ..logging_config import get_logger
 from ..rate_limiting import write_endpoint_limit
 
 router = APIRouter()
-llm_client = LLMClient()
+document_service = DocumentService()
 logger = get_logger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
@@ -29,66 +29,75 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 async def ingest_document(
     http_request: Request,
     request: IngestRequest,
-    db: Session = Depends(get_db_session),
     api_key: str = Depends(verify_api_key)
 ):
+    """
+    Ingest document using service layer - DRY refactored
+    """
     try:
-        # Extract summary and actions using LLM
-        extraction_result = await llm_client.extract_summary_and_actions(request.text)
-        summary = extraction_result.get("summary", "")
-        actions_data = extraction_result.get("actions", [])
-        
-        # Create document
-        document = Document(
+        # Process document using service layer
+        result = await document_service.process_document(
             text=request.text,
             source=request.source,
-            summary=summary
+            source_type=SourceType.WEB,
+            source_id=None,  # Web requests don't have specific source_id
+            metadata={"user_agent": http_request.headers.get("user-agent")}
         )
-        db.add(document)
-        db.commit()
-        db.refresh(document)
         
-        # Generate and store embeddings
-        embeddings_vector = await llm_client.generate_embeddings(request.text)
-        embedding = Embedding(
-            document_id=document.id,
-            vector=embeddings_vector
-        )
-        db.add(embedding)
-        
-        # Create tasks from extracted actions
-        created_actions = []
-        for action_data in actions_data:
-            # Create task in database
-            task = Task(
-                title=action_data.get("title", ""),
-                owner=action_data.get("owner"),
-                due_date=action_data.get("due"),
-                blockers=action_data.get("blockers", []),
-                project_hint=action_data.get("project_hint"),
-                source_doc_id=document.id,
-                status="new"
+        if not result.success:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Document processing failed: {result.error_message}"
             )
-            db.add(task)
-            
-            # Create response action item
+        
+        # Get document to extract actions for response
+        document = await document_service.get_document_by_id(result.document_id)
+        if not document:
+            raise HTTPException(status_code=500, detail="Document created but not found")
+        
+        # Get tasks for this document
+        from ..services.task_service import TaskService
+        task_service = TaskService()
+        tasks = await task_service.get_tasks(limit=100)
+        
+        # Filter tasks for this document
+        document_tasks = [
+            task for task in tasks 
+            if task["source_doc_id"] == str(result.document_id)
+        ]
+        
+        # Convert to ActionItem format
+        created_actions = []
+        for task in document_tasks:
             action_item = ActionItem(
-                title=action_data.get("title", ""),
-                owner=action_data.get("owner"),
-                due=action_data.get("due"),
-                blockers=action_data.get("blockers", []),
-                project_hint=action_data.get("project_hint")
+                title=task["title"],
+                owner=task["owner"],
+                due=task["due_date"],
+                blockers=task.get("blockers", []),
+                project_hint=task.get("project_hint")
             )
             created_actions.append(action_item)
         
-        db.commit()
+        logger.info(
+            "Document ingested successfully via API",
+            extra={
+                "document_id": result.document_id,
+                "actions_count": result.actions_count
+            }
+        )
         
         return IngestResponse(
-            document_id=str(document.id),
-            summary=summary,
+            document_id=str(result.document_id),
+            summary=result.summary,
             actions=created_actions
         )
         
+    except ValidationException as e:
+        logger.warning(f"Validation error in ingest: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except LLMException as e:
+        logger.error(f"LLM error in ingest: {e}")
+        raise HTTPException(status_code=502, detail="AI processing temporarily unavailable")
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+        logger.error(f"Unexpected error in ingest: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")

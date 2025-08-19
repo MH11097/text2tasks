@@ -1,80 +1,155 @@
 # AI Work OS
 
-Hệ thống AI Work OS tối giản để tự động hóa việc quản lý công việc từ văn bản thô.
+Personal productivity tool để tự động hóa việc quản lý công việc từ văn bản thô.
 
-## Tính năng
+**Triết lý**: Đơn giản, tiện lợi, gọn gàng - không phức tạp hóa!
 
-- **Nhập tài liệu**: Xử lý email, ghi chú cuộc họp, văn bản và trích xuất tự động các action items
-- **Hỏi đáp thông minh**: RAG-based Q&A với embeddings và cosine similarity
-- **Quản lý task**: CRUD operations với state machine validation
-- **UI đơn giản**: Single-page interface để tương tác với hệ thống
+## ✨ Tính năng
 
-## Cài đặt
+- **📝 Nhập tài liệu**: Paste email, meeting notes → tự động trích xuất tasks
+- **🤖 Hỏi đáp thông minh**: RAG-based Q&A với context Tiếng Việt
+- **✅ Quản lý task**: CRUD operations với state machine
+- **🌐 UI đơn giản**: Single-page responsive interface
+- **🚀 Ready to use**: Docker deployment trong 5 phút
 
-### Yêu cầu
-- Python 3.8+
-- OpenAI API key (hoặc API tương thích)
+## 🚀 Cài đặt Nhanh
 
-### 1. Cài đặt dependencies
-
+### 1. Clone & Setup
 ```bash
-pip install -r requirements.txt
-```
-
-### 2. Cấu hình environment
-
-Sao chép `.env.example` thành `.env` và cập nhật các giá trị:
-
-```bash
+git clone <repo-url>
+cd text2tasks
 cp .env.example .env
 ```
 
-Chỉnh sửa `.env`:
+### 2. Cấu hình .env
 ```env
-OPENAI_API_KEY=sk-your-openai-api-key-here
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_CHAT_MODEL=gpt-4o-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_API_KEY=sk-your-openai-key-here
 API_KEY=your-secure-api-key-here
 ```
 
-### 3. Chạy ứng dụng
-
+### 3. Chạy với Docker (Khuyến nghị)
 ```bash
-# Development
-python -m uvicorn src.main:app --reload --port 8000
-
-# Production  
-python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+# Một lệnh là xong!
+docker-compose up -d
 ```
 
 Truy cập: http://localhost:8000
 
-## Docker Deployment
-
-### 1. Sử dụng Docker Compose (Khuyến nghị)
-
+### 4. Hoặc chạy development
 ```bash
-# Tạo file .env với các biến môi trường
-cp .env.example .env
-
-# Chạy với Docker Compose
-docker-compose up -d
-
-# Xem logs
-docker-compose logs -f
-
-# Dừng services
-docker-compose down
+pip install -r requirements.txt
+python -m uvicorn src.main:app --reload --port 8000
 ```
 
-### 2. Sử dụng Docker trực tiếp
+## 📖 Cách sử dụng
 
+### Web UI
+1. Vào http://localhost:8000
+2. Paste văn bản vào form "Ingest Document"
+3. Xem tasks được tự động tạo
+4. Chat với AI về nội dung documents
+
+### API Examples
+
+#### Tạo tasks từ văn bản
 ```bash
-# Build image
-docker build -t ai-work-os .
+curl -X POST http://localhost:8000/ingest \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "text": "Meeting 20/8: Hieu hoàn thành database schema trước thứ 6. Mai gửi report cho team.",
+    "source": "meeting"
+  }'
+```
 
-# Run container
+Response:
+```json
+{
+  "document_id": "1",
+  "summary": "Meeting 20/8: Hieu cần hoàn thiện database schema...",
+  "actions": [
+    {
+      "title": "Hoàn thành database schema",
+      "owner": "Hieu",
+      "due": "2025-08-22",
+      "status": "new"
+    }
+  ]
+}
+```
+
+#### Hỏi đáp thông minh
+```bash
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "question": "Database schema của Hieu thế nào rồi?"
+  }'
+```
+
+#### Xem tất cả tasks
+```bash
+curl http://localhost:8000/tasks
+```
+
+#### Cập nhật task
+```bash
+curl -X PATCH http://localhost:8000/tasks/1 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "status": "in_progress",
+    "owner": "Hieu"
+  }'
+```
+
+## 🏗 Kiến trúc Đơn giản
+
+```
+🌐 Web UI (Static HTML/JS)
+    ↓
+🚀 FastAPI Backend
+├── /ingest    → Tạo tasks từ văn bản
+├── /ask       → Hỏi đáp với RAG
+├── /tasks     → CRUD tasks  
+├── /status    → Tổng quan hệ thống
+└── /healthz   → Health check
+    ↓
+🧠 OpenAI Integration
+├── Vietnamese prompts
+├── RAG embeddings
+└── Smart extraction
+    ↓
+💾 SQLite Database
+├── documents  → Văn bản gốc
+├── embeddings → Vector search
+└── tasks      → Action items
+```
+
+### Task State Machine
+```
+new → in_progress → done
+ ↓         ↓
+blocked ←←←←
+```
+
+## 🔧 Environment Variables
+
+| Variable | Default | Mô tả |
+|----------|---------|-------|
+| `OPENAI_API_KEY` | - | OpenAI API key (bắt buộc) |
+| `API_KEY` | - | API key cho write operations |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API URL |
+| `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Chat model |
+| `DB_URL` | `sqlite:///./app.db` | Database URL |
+| `DEBUG` | `false` | Debug mode |
+
+## 🐳 Docker Deployment
+
+### Simple Docker Run
+```bash
+docker build -t ai-work-os .
 docker run -d \
   --name ai-work-os \
   -p 8000:8000 \
@@ -84,184 +159,151 @@ docker run -d \
   ai-work-os
 ```
 
-## API Documentation
-
-### Authentication
-Các endpoint ghi (POST, PATCH) yêu cầu header `X-API-Key`.
-
-### Endpoints
-
-#### Health Check
-```bash
-curl http://localhost:8000/healthz
+### Docker Compose (Khuyến nghị)
+```yaml
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_KEY=${API_KEY}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
-#### Ingest Document
-```bash
-curl -X POST http://localhost:8000/ingest \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "text": "2025-08-16 Meeting: Hieu finalize schema by Wed; blocker: prod access.",
-    "source": "meeting"
-  }'
-```
-
-Response:
-```json
-{
-  "document_id": "1",
-  "summary": "Cuộc họp ngày 16/8: Hieu cần hoàn thiện schema trước thứ Tư...",
-  "actions": [
-    {
-      "title": "Hoàn thiện database schema",
-      "owner": "Hieu", 
-      "due": "2025-08-20",
-      "blockers": ["Thiếu quyền truy cập production"],
-      "project_hint": "Database migration"
-    }
-  ]
-}
-```
-
-#### Ask Question
-```bash
-curl -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "question": "Trạng thái schema như thế nào?",
-    "top_k": 6
-  }'
-```
-
-Response:
-```json
-{
-  "answer": "Hieu đang phụ trách hoàn thiện database schema, hạn chót thứ Tư nhưng bị block do thiếu quyền prod.",
-  "refs": ["1"],
-  "suggested_next_steps": [
-    "Xin quyền truy cập production",
-    "Kiểm tra timeline backup"
-  ]
-}
-```
-
-#### List Tasks
-```bash
-# All tasks
-curl http://localhost:8000/tasks
-
-# Filter by status
-curl "http://localhost:8000/tasks?status=in_progress"
-
-# Filter by owner
-curl "http://localhost:8000/tasks?owner=Hieu"
-```
-
-#### Update Task
-```bash
-curl -X PATCH http://localhost:8000/tasks/1 \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{
-    "status": "in_progress",
-    "owner": "Hieu",
-    "due_date": "2025-08-25"
-  }'
-```
-
-#### System Status
-```bash
-curl http://localhost:8000/status
-```
-
-Response:
-```json
-{
-  "summary": "Đang có 2 task cần xử lý. 1 task mới, 1 đang thực hiện. Nên bắt đầu với các task mới.",
-  "counts": {
-    "new": 1,
-    "in_progress": 1, 
-    "blocked": 0,
-    "done": 3
-  }
-}
-```
-
-## Task State Machine
-
-Các chuyển đổi trạng thái hợp lệ:
-- `new` → `in_progress` hoặc `blocked`
-- `in_progress` → `done` hoặc `blocked`
-- `blocked` → `in_progress`
-- `done` → (không chuyển được)
-
-## Testing
+## 🧪 Testing
 
 ```bash
-# Chạy tests
+# Basic tests
 pytest
 
-# Với coverage
+# With coverage
 pytest --cov=src
 
-# Chạy specific test
-pytest tests/test_acceptance.py::TestHealthCheck::test_healthz
+# Performance test
+locust -f tests/locust/locustfile.py --host=http://localhost:8000
 ```
 
-## Kiến trúc
+## 🛠 Development
 
+### Code Structure
 ```
 src/
-├── main.py              # FastAPI app chính
-├── config.py            # Cấu hình environment  
-├── database.py          # SQLAlchemy models
-├── llm_client.py        # OpenAI client + prompts
-├── schemas.py           # Pydantic models
-└── routes/
-    ├── health.py        # Health check
-    ├── ingest.py        # Document ingestion
-    ├── ask.py           # Q&A with RAG
+├── main.py              # FastAPI app
+├── config.py            # Settings
+├── database.py          # SQLite models
+├── llm_client.py        # AI integration
+├── schemas.py           # API schemas
+└── routes/              # API endpoints
+    ├── health.py        # Health checks
+    ├── ingest.py        # Document processing
+    ├── ask.py           # Q&A functionality
     ├── tasks.py         # Task management
     └── status.py        # System status
 ```
 
-### Database Models
-- **Document**: Lưu văn bản gốc và tóm tắt
-- **Embedding**: Vector embeddings cho RAG
-- **Task**: Action items với state machine
+### Development Setup
+```bash
+# Virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate     # Windows
 
-### LLM Integration
-- **Extraction**: Prompts tiếng Việt cho tóm tắt + action items
-- **Embeddings**: Vector generation cho semantic search
-- **Q&A**: Context-aware với fallback messages
+# Install dependencies
+pip install -r requirements.txt
 
-## Environment Variables
+# Run development server
+python -m uvicorn src.main:app --reload --port 8000
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | - | OpenAI API key (required) |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API base URL |
-| `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Chat model |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
-| `API_KEY` | - | API key cho authentication (required) |
-| `DB_URL` | `sqlite:///./app.db` | Database URL |
-| `RAG_TOP_K` | `6` | Số lượng documents cho RAG |
-| `ALLOWED_ORIGIN` | `http://localhost:8000` | CORS origin |
-| `DEBUG` | `false` | Debug mode |
+## 🔮 Roadmap
 
-## Development
+### ✅ Phase 1-2: Production Ready (COMPLETED)
+- Core API functionality
+- Web UI interface
+- Docker deployment
+- Performance optimization
+- Security hardening
 
-### Roadmap
-Xem [PROJECT_PLAN.md](PROJECT_PLAN.md) để biết kế hoạch phát triển chi tiết.
+### 🎯 Phase 3: Multi-Channel Convenience (Next)
+- **Telegram Bot**: Commands + notifications
+- **Email Integration**: Auto-extract from emails
+- **UI Improvements**: Dark mode, shortcuts
+- **Smart Features**: Auto-categorization
 
-### Contributing
-1. Fork repository
-2. Tạo feature branch
-3. Commit changes với tests
-4. Tạo Pull Request
+### 🌟 Phase 4: Advanced Personal Features (Optional)
+- Smart task prioritization
+- Data export/sync
+- Calendar integration
+- Voice input
 
-## License
+Chi tiết: [PROJECT_PLAN.md](PROJECT_PLAN.md)
 
-MIT License
+## 💡 Tips & Tricks
+
+### Vietnamese Prompts
+- AI hiểu tiếng Việt tốt: "Tóm tắt cuộc họp hôm nay"
+- Mixed language OK: "Meeting notes about database migration"
+
+### Smart Task Detection
+- Auto-detect người làm: "Hieu sẽ fix bug này"  
+- Auto-detect deadline: "hoàn thành trước thứ 6"
+- Auto-detect priority: "urgent", "quan trọng"
+
+### Web UI Shortcuts
+- `Ctrl+Enter`: Submit form
+- `/` : Focus search
+- `Esc`: Clear forms
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Docker không start?**
+```bash
+# Check logs
+docker-compose logs
+
+# Rebuild
+docker-compose down
+docker-compose up --build
+```
+
+**API errors?**
+- Kiểm tra OPENAI_API_KEY trong .env
+- Verify API_KEY match between requests và .env
+
+**Slow responses?**  
+- Thêm Redis cache nếu cần
+- Check OPENAI_BASE_URL nếu dùng proxy
+
+**Vietnamese text issues?**
+- Đảm bảo UTF-8 encoding
+- Check database charset settings
+
+## 🔒 Security
+
+- API key authentication cho write operations
+- Rate limiting built-in
+- Input validation & sanitization  
+- Security headers configured
+- SQLite safe from injection attacks
+
+## 📄 License
+
+MIT License - Use freely for personal projects!
+
+---
+
+**🎯 Mục tiêu**: Personal productivity tool đơn giản, không phức tạp hóa!
+**💪 Nguyên tắc**: Làm ít, làm tốt, dễ sử dụng hàng ngày.
