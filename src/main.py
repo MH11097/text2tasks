@@ -9,6 +9,7 @@ import time
 from .database import create_tables
 from .config import settings
 from .logging_config import setup_logging, get_logger
+from .rate_limiting import limiter, custom_rate_limit_handler
 from .routes import health, ingest, ask, tasks, status
 
 # Setup structured logging
@@ -25,6 +26,10 @@ app = FastAPI(
     description="Minimal AI Work OS for document ingestion, task extraction, and Q&A",
     version="0.1.0"
 )
+
+# Setup rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(429, custom_rate_limit_handler)
 
 # Request logging middleware
 @app.middleware("http")

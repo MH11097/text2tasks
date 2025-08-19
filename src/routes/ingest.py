@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -7,6 +7,7 @@ from ..schemas import IngestRequest, IngestResponse, ActionItem
 from ..llm_client import LLMClient
 from ..config import settings
 from ..logging_config import get_logger
+from ..rate_limiting import write_endpoint_limit
 
 router = APIRouter()
 llm_client = LLMClient()
@@ -18,7 +19,9 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     return x_api_key
 
 @router.post("/ingest", response_model=IngestResponse)
+@write_endpoint_limit()
 async def ingest_document(
+    http_request: Request,
     request: IngestRequest,
     db: Session = Depends(get_db_session),
     api_key: str = Depends(verify_api_key)

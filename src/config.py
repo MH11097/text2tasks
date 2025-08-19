@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # CORS
     allowed_origin: str = "http://localhost:8000"
     
+    # Rate Limiting
+    redis_url: str = "redis://localhost:6379"
+    rate_limit_enabled: bool = True
+    
     # Debug
     debug: bool = False
 
