@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     
     # Database
     db_url: str = "sqlite:///./app.db"
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    db_pool_recycle: int = 3600
     
     # API Security
     api_key: str
