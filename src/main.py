@@ -10,6 +10,7 @@ from .database import create_tables
 from .config import settings
 from .logging_config import setup_logging, get_logger
 from .rate_limiting import limiter, custom_rate_limit_handler
+from .security import SecurityHeadersMiddleware, RequestSizeMiddleware
 from .routes import health, ingest, ask, tasks, status
 
 # Setup structured logging
@@ -30,6 +31,10 @@ app = FastAPI(
 # Setup rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(429, custom_rate_limit_handler)
+
+# Add security middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeMiddleware, max_size=1024 * 1024)  # 1MB limit
 
 # Request logging middleware
 @app.middleware("http")

@@ -14,9 +14,15 @@ llm_client = LLMClient()
 logger = get_logger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    if x_api_key != settings.api_key:
+    from ..security import validate_api_key_header
+    
+    validated_key = validate_api_key_header(x_api_key)
+    
+    if validated_key != settings.api_key:
+        logger.warning("Invalid API key attempted", extra={"key_preview": validated_key[:10] + "..." if len(validated_key) > 10 else validated_key})
         raise HTTPException(status_code=401, detail="Invalid API key")
-    return x_api_key
+    
+    return validated_key
 
 @router.post("/ingest", response_model=IngestResponse)
 @write_endpoint_limit()

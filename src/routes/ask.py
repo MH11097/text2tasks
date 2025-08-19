@@ -12,9 +12,11 @@ router = APIRouter()
 llm_client = LLMClient()
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    if x_api_key != settings.api_key:
+    from ..security import validate_api_key_header
+    validated_key = validate_api_key_header(x_api_key)
+    if validated_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    return x_api_key
+    return validated_key
 
 @router.post("/ask", response_model=AskResponse)
 async def ask_question(
