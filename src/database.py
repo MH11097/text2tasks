@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, ForeignKey, Table, Boolean, UniqueConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
@@ -15,6 +15,20 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+# Many-to-many association table for documents and tasks
+document_tasks = Table(
+    'document_tasks',
+    Base.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('document_id', Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False),
+    Column('task_id', Integer, ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False),
+    Column('assigned_at', DateTime, default=datetime.utcnow),
+    Column('assigned_by', String(100)),
+    Column('inherited', Boolean, default=False),
+    UniqueConstraint('document_id', 'task_id'),
+    Index('idx_doc_tasks_doc', 'document_id'),
+    Index('idx_doc_tasks_task', 'task_id')
+)
 
 class Document(Base):
     __tablename__ = "documents"
@@ -24,13 +38,19 @@ class Document(Base):
     source = Column(String(50), nullable=False, index=True)  # email|meeting|note|other
     source_type = Column(String(20), default="web", index=True)  # web|telegram|email
     source_id = Column(String(100), index=True)  # telegram_user_id|email_address|session_id
-    metadata = Column(JSON, default=dict)  # platform-specific data
+    doc_metadata = Column(JSON, default=dict)  # platform-specific data (renamed from metadata)
     summary = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # Assignment status for resource management
+    assignment_status = Column(String(20), default="unassigned", index=True)  # unassigned|assigned|archived
     
     # Relationships
     embeddings = relationship("Embedding", back_populates="document", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="source_document", cascade="all, delete-orphan")
+    
+    # Many-to-many with tasks for resource assignment
+    assigned_tasks = relationship("Task", secondary="document_tasks", back_populates="assigned_documents")
 
 class Embedding(Base):
     __tablename__ = "embeddings"
@@ -52,12 +72,28 @@ class Task(Base):
     owner = Column(String(100), index=True)
     blockers = Column(JSON, default=list)  # List of blocker strings
     project_hint = Column(String(100))
-    source_doc_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    source_doc_id = Column(Integer, ForeignKey("documents.id"), nullable=True)  # Made nullable for hierarchy
+    
+    # Hierarchy fields
+    parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True, index=True)
+    task_level = Column(Integer, default=0, index=True)  # 0=root, 1=level1, etc.
+    task_path = Column(String(500), index=True)  # "PROJ-001/DEV-001/API-001"
+    task_code = Column(String(20), unique=True, index=True)  # Short identifier
+    
+    # Enhanced tracking fields
+    description = Column(Text)  # Current status description
+    progress_percentage = Column(Integer, default=0)  # 0-100
+    priority = Column(String(20), default="medium", index=True)  # low|medium|high|urgent
+    
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     source_document = relationship("Document", back_populates="tasks")
+    parent_task = relationship("Task", remote_side=[id], backref="children")
+    
+    # Many-to-many with documents
+    assigned_documents = relationship("Document", secondary="document_tasks", back_populates="assigned_tasks")
 
 class MessageQueue(Base):
     __tablename__ = "message_queue"

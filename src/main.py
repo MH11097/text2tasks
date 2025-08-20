@@ -11,7 +11,7 @@ from .config import settings
 from .logging_config import setup_logging, get_logger
 from .rate_limiting import limiter, custom_rate_limit_handler
 from .security import SecurityHeadersMiddleware, RequestSizeMiddleware
-from .routes import health, ingest, ask, tasks, status
+from .routes import health, ingest, ask, tasks, status, task_hierarchy, resources, contextual_ask
 
 # Setup structured logging
 setup_logging()
@@ -89,6 +89,9 @@ app.include_router(ingest.router, tags=["ingestion"])
 app.include_router(ask.router, tags=["qa"])
 app.include_router(tasks.router, tags=["tasks"])
 app.include_router(status.router, tags=["status"])
+app.include_router(task_hierarchy.router, tags=["task-hierarchy"])
+app.include_router(resources.router, tags=["resource-management"])
+app.include_router(contextual_ask.router, tags=["contextual-qa"])
 
 # Serve static files (UI)
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")

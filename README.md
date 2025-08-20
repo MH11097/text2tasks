@@ -104,27 +104,65 @@ curl -X PATCH http://localhost:8000/tasks/1 \
   }'
 ```
 
-## 🏗 Kiến trúc Đơn giản
+## 🏗 Kiến trúc Hệ thống
 
+### 🎨 **Frontend Architecture (Phase 1 - COMPLETED)**
 ```
-🌐 Web UI (Static HTML/JS)
-    ↓
+🌐 React Frontend (Modern SPA)
+├── 📱 Professional UI/UX
+│   ├── Dark/Light theme
+│   ├── Responsive design  
+│   ├── Animated transitions
+│   └── PWA capabilities
+├── 🏗 Modern Stack
+│   ├── React 18 + TypeScript
+│   ├── Vite build system
+│   ├── Tailwind CSS design system
+│   └── Framer Motion animations
+├── 🔧 State Management  
+│   ├── Zustand (global state)
+│   ├── React Query (server state)
+│   └── Persistent storage
+└── 🚀 Production Ready
+    ├── Docker deployment
+    ├── Nginx configuration
+    ├── Service Worker (PWA)
+    └── Performance optimized
+```
+
+### 🖥 **Backend Architecture**
+```
 🚀 FastAPI Backend
-├── /ingest    → Tạo tasks từ văn bản
-├── /ask       → Hỏi đáp với RAG
-├── /tasks     → CRUD tasks  
-├── /status    → Tổng quan hệ thống
-└── /healthz   → Health check
-    ↓
-🧠 OpenAI Integration
-├── Vietnamese prompts
-├── RAG embeddings
-└── Smart extraction
-    ↓
-💾 SQLite Database
-├── documents  → Văn bản gốc
-├── embeddings → Vector search
-└── tasks      → Action items
+├── 🌐 API Endpoints
+│   ├── /ingest         → Tạo tasks từ văn bản
+│   ├── /ask            → Hỏi đáp với RAG
+│   ├── /tasks          → CRUD tasks  
+│   ├── /hierarchy      → Task hierarchy management
+│   ├── /resources      → Document & resource library
+│   ├── /status         → Tổng quan hệ thống
+│   └── /healthz        → Health check
+├── 🧠 AI Integration
+│   ├── Vietnamese prompts
+│   ├── RAG embeddings
+│   ├── Smart extraction
+│   └── Context-aware Q&A
+└── 💾 Data Layer
+    ├── SQLite Database
+    ├── Vector embeddings
+    └── Task hierarchy
+```
+
+### 🔄 **Full Stack Integration**
+```
+Frontend (Port 3000)    Backend (Port 8000)    
+     │                       │
+     ├─── HTTP/API ──────────┤
+     ├─── WebSocket ─────────┤ (Future)
+     └─── Proxy /api ────────┘
+                            │
+                    🧠 OpenAI APIs
+                            │
+                    💾 SQLite + Embeddings
 ```
 
 ### Task State Machine
@@ -197,21 +235,48 @@ locust -f tests/locust/locustfile.py --host=http://localhost:8000
 
 ### Code Structure
 ```
-src/
-├── main.py              # FastAPI app
-├── config.py            # Settings
-├── database.py          # SQLite models
-├── llm_client.py        # AI integration
-├── schemas.py           # API schemas
-└── routes/              # API endpoints
-    ├── health.py        # Health checks
-    ├── ingest.py        # Document processing
-    ├── ask.py           # Q&A functionality
-    ├── tasks.py         # Task management
-    └── status.py        # System status
+text2tasks/
+├── 🖥 backend/
+│   ├── src/
+│   │   ├── main.py              # FastAPI app
+│   │   ├── config.py            # Settings
+│   │   ├── database.py          # SQLite models
+│   │   ├── llm_client.py        # AI integration
+│   │   ├── schemas.py           # API schemas
+│   │   └── routes/              # API endpoints
+│   │       ├── health.py        # Health checks
+│   │       ├── ingest.py        # Document processing
+│   │       ├── ask.py           # Q&A functionality
+│   │       ├── tasks.py         # Task management
+│   │       ├── hierarchy.py     # Task hierarchy
+│   │       ├── resources.py     # Resource management
+│   │       └── status.py        # System status
+│   ├── static/                  # Legacy HTML UI
+│   └── tests/                   # Backend tests
+├── 🎨 frontend/ (NEW!)
+│   ├── src/
+│   │   ├── components/          # React components
+│   │   │   ├── layout/         # Header, Sidebar, Layout
+│   │   │   ├── common/         # Shared components
+│   │   │   └── ui/             # Basic UI elements
+│   │   ├── pages/              # Page components
+│   │   ├── services/           # API client
+│   │   ├── stores/             # State management
+│   │   ├── hooks/              # Custom React hooks
+│   │   ├── types/              # TypeScript definitions
+│   │   └── utils/              # Helper functions
+│   ├── public/                 # Static assets
+│   ├── Dockerfile             # Frontend container
+│   └── package.json           # Dependencies
+└── 🐳 Docker/
+    ├── Dockerfile             # Backend container
+    ├── docker-compose.yml     # Full stack deployment
+    └── nginx.conf             # Production web server
 ```
 
 ### Development Setup
+
+#### Backend Development
 ```bash
 # Virtual environment
 python -m venv venv
@@ -222,26 +287,67 @@ venv\Scripts\activate     # Windows
 # Install dependencies
 pip install -r requirements.txt
 
-# Run development server
+# Run backend development server
 python -m uvicorn src.main:app --reload --port 8000
+```
+
+#### Frontend Development (NEW!)
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies  
+npm install
+
+# Copy environment config
+cp .env.example .env
+
+# Start frontend development server
+npm run dev
+# Frontend will be available at http://localhost:3000
+```
+
+#### Full Stack Development
+```bash
+# Terminal 1: Backend
+python -m uvicorn src.main:app --reload --port 8000
+
+# Terminal 2: Frontend  
+cd frontend && npm run dev
+
+# Access:
+# - Frontend: http://localhost:3000 (recommended)
+# - Backend API: http://localhost:8000
+# - API Docs: http://localhost:8000/docs
 ```
 
 ## 🔮 Roadmap
 
-### ✅ Phase 1-2: Production Ready (COMPLETED)
-- Core API functionality
-- Web UI interface
-- Docker deployment
-- Performance optimization
-- Security hardening
+### ✅ Phase 1: Modern Frontend (COMPLETED)
+- ✅ **Professional React Frontend**: TypeScript, Tailwind CSS, Modern UI/UX
+- ✅ **State Management**: Zustand + React Query for optimal performance
+- ✅ **Production Ready**: Docker deployment, PWA capabilities
+- ✅ **Developer Experience**: Vite build system, Hot reload, Type safety
 
-### 🎯 Phase 3: Multi-Channel Convenience (Next)
+### ✅ Phase 2: Backend Optimization (COMPLETED) 
+- ✅ **Core API functionality**: All endpoints working
+- ✅ **Performance optimization**: Database indexes, connection pooling
+- ✅ **Security hardening**: Rate limiting, input validation
+- ✅ **Production deployment**: Docker optimization
+
+### 🎯 Phase 3: Enhanced User Experience (Next)
+- **Task Management**: Integrate existing TaskManagementApp.tsx
+- **Real-time Features**: WebSocket for live updates
+- **Advanced UI**: Virtual scrolling, drag & drop, animations
+- **Performance**: Caching strategies, bundle optimization
+
+### 🚀 Phase 4: Multi-Channel Convenience (Future)
 - **Telegram Bot**: Commands + notifications
 - **Email Integration**: Auto-extract from emails
-- **UI Improvements**: Dark mode, shortcuts
-- **Smart Features**: Auto-categorization
+- **Mobile Optimization**: Native app experience
+- **Smart Features**: Auto-categorization, AI suggestions
 
-### 🌟 Phase 4: Advanced Personal Features (Optional)
+### 🌟 Phase 5: Advanced Personal Features (Optional)
 - Smart task prioritization
 - Data export/sync
 - Calendar integration

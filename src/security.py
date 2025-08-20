@@ -1,4 +1,4 @@
-from fastapi import Request, Response, HTTPException
+from fastapi import Request, Response, HTTPException, Header
 from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 import re
@@ -235,3 +235,13 @@ class RequestSizeMiddleware(BaseHTTPMiddleware):
         
         validate_request_size(request, self.max_size)
         return await call_next(request)
+
+async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key from header"""
+    validated_key = validate_api_key_header(x_api_key)
+    
+    if validated_key != settings.api_key:
+        logger.warning("Invalid API key attempted", extra={"key_preview": validated_key[:10] + "..." if len(validated_key) > 10 else validated_key})
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    return validated_key
