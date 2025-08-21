@@ -6,12 +6,15 @@ from domain.services.document_service import DocumentService
 from domain.entities.types import SourceType, ProcessingResult
 from domain.entities.exceptions import ValidationException, LLMException
 from shared.config.settings import settings
-from infrastructure.logging.config import get_logger
+import logging
 from app.dependencies import container
 
 router = APIRouter()
-document_service = DocumentService()
-logger = get_logger(__name__)
+document_service = DocumentService(
+    document_repository=container.document_repository,
+    llm_client=container.llm_client
+)
+logger = logging.getLogger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     from ..security import validate_api_key_header
@@ -25,7 +28,6 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     return validated_key
 
 @router.post("/ingest", response_model=IngestResponse)
-@write_endpoint_limit()
 async def ingest_document(
     http_request: Request,
     request: IngestRequest,

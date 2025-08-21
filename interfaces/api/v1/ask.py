@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Optional
 
-from ..schemas import AskRequest, AskResponse
+from ..schemas.schemas import AskRequest, AskResponse
 from ..services.document_service import DocumentService
 from ..services.task_service import TaskService
 from ..core.exceptions import ValidationException, LLMException

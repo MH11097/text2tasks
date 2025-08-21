@@ -136,14 +136,14 @@ export const statusApi = {
   getStatus: async (): Promise<SystemStatus> => {
     return apiRequest({
       method: 'GET',
-      url: '/status',
+      url: '/api/status',
     });
   },
   
   getResourceStats: async (): Promise<ResourceStats> => {
     return apiRequest({
       method: 'GET',
-      url: '/resources/stats',
+      url: '/api/resources/stats',
     });
   },
 };

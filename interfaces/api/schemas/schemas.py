@@ -4,7 +4,7 @@ from datetime import datetime
 
 class IngestRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=50000, description="Text content to process")
-    source: str = Field(..., regex="^(email|meeting|note|other|document|chat)$", description="Source type of the document")
+    source: str = Field(..., pattern="^(email|meeting|note|other|document|chat)$", description="Source type of the document")
     
     @validator('text')
     def validate_text_content(cls, v):
@@ -19,7 +19,7 @@ class IngestRequest(BaseModel):
 class ActionItem(BaseModel):
     title: str
     owner: Optional[str] = None
-    due: Optional[str] = Field(None, regex="^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+    due: Optional[str] = Field(None, pattern="^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
     blockers: List[str] = []
     project_hint: Optional[str] = None
 
@@ -44,8 +44,8 @@ class AskResponse(BaseModel):
 
 class TaskBase(BaseModel):
     title: str
-    status: str = Field("new", regex="^(new|in_progress|blocked|done)$")
-    due_date: Optional[str] = Field(None, regex="^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+    status: str = Field("new", pattern="^(new|in_progress|blocked|done)$")
+    due_date: Optional[str] = Field(None, pattern="^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
     owner: Optional[str] = None
 
 class TaskResponse(BaseModel):
@@ -57,9 +57,9 @@ class TaskResponse(BaseModel):
     source_doc_id: str
 
 class TaskUpdate(BaseModel):
-    status: Optional[str] = Field(None, regex="^(new|in_progress|blocked|done)$", description="Task status")
+    status: Optional[str] = Field(None, pattern="^(new|in_progress|blocked|done)$", description="Task status")
     owner: Optional[str] = Field(None, max_length=100, description="Task owner")
-    due_date: Optional[str] = Field(None, regex="^[0-9]{4}-[0-9]{2}-[0-9]{2}$", description="Due date in YYYY-MM-DD format")
+    due_date: Optional[str] = Field(None, pattern="^[0-9]{4}-[0-9]{2}-[0-9]{2}$", description="Due date in YYYY-MM-DD format")
     
     @validator('status')
     def validate_status_value(cls, v):

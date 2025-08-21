@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict
 from pythonjsonlogger import jsonlogger
 
-from .config import settings
+from shared.config.settings import settings
 
 
 class RequestContextFilter(logging.Filter):

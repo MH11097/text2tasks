@@ -13,9 +13,9 @@ from .dependencies import container
 
 # Import API routes
 from interfaces.api.v1.health import router as health_router
-from interfaces.api.v1.ingest import router as ingest_router
-from interfaces.api.v1.ask import router as ask_router
-from interfaces.api.v1.tasks import router as tasks_router
+# from interfaces.api.v1.ingest import router as ingest_router
+# from interfaces.api.v1.ask import router as ask_router
+# from interfaces.api.v1.tasks import router as tasks_router
 from interfaces.api.v1.status import router as status_router
 
 # Setup logging
@@ -57,9 +57,9 @@ if settings.debug:
 
 # Include API routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
-app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
-app.include_router(ask_router, prefix="/api/v1", tags=["ask"])
-app.include_router(tasks_router, prefix="/api/v1", tags=["tasks"])
+# app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
+# app.include_router(ask_router, prefix="/api/v1", tags=["ask"])
+# app.include_router(tasks_router, prefix="/api/v1", tags=["tasks"])
 app.include_router(status_router, prefix="/api/v1", tags=["status"])
 
 # Static files

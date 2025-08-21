@@ -3,26 +3,23 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 import httpx
 import time
+import logging
 from datetime import datetime
 from typing import Dict, Any
 
-from ..database import get_db_session
-from ..config import settings
-from ..logging_config import get_logger
-from ..rate_limiting import health_endpoint_limit
+from infrastructure.database.connection import get_db_session
+from shared.config.settings import settings
 
 router = APIRouter()
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 @router.get("/healthz")
-@health_endpoint_limit()
 async def health_check(request: Request):
     """Basic health check endpoint"""
     logger.debug("Health check requested")
     return {"status": "ok"}
 
 @router.get("/health/detailed")
-@health_endpoint_limit()
 async def detailed_health_check(request: Request, db: Session = Depends(get_db_session)) -> Dict[str, Any]:
     """Detailed health check with database and LLM connectivity"""
     logger.info("Detailed health check requested")
@@ -93,7 +90,6 @@ async def detailed_health_check(request: Request, db: Session = Depends(get_db_s
     return health_status
 
 @router.get("/health/ready")
-@health_endpoint_limit()
 async def readiness_check(request: Request, db: Session = Depends(get_db_session)) -> Dict[str, Any]:
     """Kubernetes readiness probe endpoint"""
     try:
@@ -105,7 +101,6 @@ async def readiness_check(request: Request, db: Session = Depends(get_db_session
         raise HTTPException(status_code=503, detail={"status": "not_ready", "error": str(e)})
 
 @router.get("/health/live")
-@health_endpoint_limit()
 async def liveness_check(request: Request) -> Dict[str, Any]:
     """Kubernetes liveness probe endpoint"""
     return {

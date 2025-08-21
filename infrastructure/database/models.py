@@ -16,7 +16,7 @@ class Document(Base):
     source = Column(String(50), nullable=False, index=True)  # email|meeting|note|other
     source_type = Column(String(20), default="web", index=True)  # web|telegram|email
     source_id = Column(String(100), index=True)  # telegram_user_id|email_address|session_id
-    metadata = Column(JSON, default=dict)  # platform-specific data
+    doc_metadata = Column(JSON, default=dict)  # platform-specific data
     summary = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     
