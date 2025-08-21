@@ -449,13 +449,14 @@ export const appActions = {
       setLoading(true);
       setError(null);
       
-      // Simulate initialization (can be removed if not needed)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // Initialize any required app state
       // This could include checking authentication, loading user preferences, etc.
       
+      // For now, just complete initialization immediately
+      console.log('App initialized successfully');
+      
     } catch (error) {
+      console.error('App initialization error:', error);
       setError(error instanceof Error ? error.message : 'Failed to initialize app');
     } finally {
       // Always set loading to false

@@ -1,191 +1,233 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Search, Bell, User, Menu, X, Plus, Filter, Grid3X3, List, 
-         Calendar, Tag, Users, FileText, MessageCircle, Upload, 
-         Download, Eye, Trash2, Send, Paperclip,
-         CheckSquare, Clock, AlertCircle, CheckCircle, Pause, Play } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore, useTasks, useTheme } from '@/stores/app-store';
-import { api } from '@/services/api';
-import { Task, TaskStatus, TaskPriority, User as UserType } from '@/types';
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreVertical,
+  Grid3X3,
+  List,
+  Calendar,
+  CheckSquare,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  User,
+  X,
+  Edit3,
+  Trash2,
+  Play,
+  Pause,
+  BarChart3,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Network,
+  Rocket,
+  MoreHorizontal,
+} from 'lucide-react';
 
-// Local interfaces for the existing component structure
-interface QAMessage {
-  id: string;
-  type: 'question' | 'answer';
-  content: string;
-  timestamp: string;
-  user?: UserType;
-  references?: string[];
+import { api } from '@/services/api';
+import { useUI } from '@/stores/app-store';
+import { cn } from '@/utils/cn';
+import { formatRelativeTime } from '@/utils/format';
+import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { SmartAutomation } from '@/components/analytics/SmartAutomation';
+import { TaskRelationships } from '@/components/analytics/TaskRelationships';
+import { ProductivityFeatures } from '@/components/analytics/ProductivityFeatures';
+import { VirtualizedTaskList, useVirtualizedListHeight } from '@/components/common/VirtualizedList';
+import { Task } from '@/types/api';
+
+interface TaskFilters {
+  status?: string[];
+  priority?: string[];
+  owner?: string[];
+  search?: string;
 }
 
-// Utility Components from original
-const Button: React.FC<{
-  variant?: 'primary' | 'secondary' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  onClick?: () => void;
-  children: React.ReactNode;
-  className?: string;
-  disabled?: boolean;
-}> = ({ variant = 'primary', size = 'md', onClick, children, className = '', disabled = false }) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
-  
-  const variantClasses = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
-  };
-  
-  const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
-  };
-  
+type ViewMode = 'list' | 'grid' | 'kanban';
+
+const statusConfig = {
+  new: { icon: Clock, color: 'text-gray-500', bgColor: 'bg-gray-100 dark:bg-gray-800', label: 'New' },
+  in_progress: { icon: Play, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900', label: 'In Progress' },
+  blocked: { icon: AlertCircle, color: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900', label: 'Blocked' },
+  done: { icon: CheckCircle, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900', label: 'Done' },
+};
+
+const priorityConfig = {
+  low: { color: 'text-gray-500', bgColor: 'bg-gray-100 dark:bg-gray-800', label: 'Low' },
+  medium: { color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900', label: 'Medium' },
+  high: { color: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900', label: 'High' },
+  urgent: { color: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900', label: 'Urgent' },
+};
+
+// Task Card Component
+interface TaskCardProps {
+  task: Task;
+  onEdit: (task: Task) => void;
+  onDelete: (id: number) => void;
+  onStatusChange: (id: number, status: Task['status']) => void;
+}
+
+const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onStatusChange }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const StatusIcon = statusConfig[task.status].icon;
+
   return (
-    <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
-      onClick={onClick}
-      disabled={disabled}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="group bg-card border border-border rounded-lg p-4 hover:shadow-md transition-all duration-200"
     >
-      {children}
-    </button>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            'flex items-center justify-center w-8 h-8 rounded-lg',
+            statusConfig[task.status].bgColor
+          )}>
+            <StatusIcon className={cn('h-4 w-4', statusConfig[task.status].color)} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+              {task.title}
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={cn(
+                'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+                statusConfig[task.status].bgColor,
+                statusConfig[task.status].color
+              )}>
+                {statusConfig[task.status].label}
+              </span>
+              {task.priority && (
+                <span className={cn(
+                  'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+                  priorityConfig[task.priority].bgColor,
+                  priorityConfig[task.priority].color
+                )}>
+                  {priorityConfig[task.priority].label}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Menu */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-muted transition-all"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </button>
+          
+          {showMenu && (
+            <div className="absolute right-0 top-8 w-48 bg-popover border border-border rounded-md shadow-lg z-10">
+              <div className="py-1">
+                <button
+                  onClick={() => { onEdit(task); setShowMenu(false); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted text-left"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Edit Task
+                </button>
+                <hr className="my-1" />
+                {Object.entries(statusConfig).map(([status, config]) => (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      onStatusChange(task.id, status as Task['status']);
+                      setShowMenu(false);
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted text-left',
+                      task.status === status && 'bg-primary/10 text-primary'
+                    )}
+                  >
+                    <config.icon className="h-4 w-4" />
+                    Mark as {config.label}
+                  </button>
+                ))}
+                <hr className="my-1" />
+                <button
+                  onClick={() => { onDelete(task.id); setShowMenu(false); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-destructive/10 text-destructive text-left"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Task
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      {task.description && (
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+          {task.description}
+        </p>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center gap-3">
+          {task.owner && (
+            <div className="flex items-center gap-1">
+              <User className="h-4 w-4" />
+              <span>{task.owner}</span>
+            </div>
+          )}
+          {task.due_date && (
+            <div className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              <span>{formatRelativeTime(task.due_date)}</span>
+            </div>
+          )}
+        </div>
+        <span className="text-xs">{formatRelativeTime(task.created_at)}</span>
+      </div>
+    </motion.div>
   );
 };
 
-const Badge: React.FC<{
-  variant: 'status' | 'priority' | 'tag';
-  value: string;
-  className?: string;
-}> = ({ variant, value, className = '' }) => {
-  const getClasses = () => {
-    const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
-    
-    if (variant === 'status') {
-      const statusColors = {
-        new: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-        todo: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-        in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-        done: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-        blocked: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-      };
-      return `${base} ${statusColors[value as keyof typeof statusColors]}`;
-    }
-    
-    if (variant === 'priority') {
-      const priorityColors = {
-        low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-        medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-        high: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-        urgent: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-        critical: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-      };
-      return `${base} ${priorityColors[value as keyof typeof priorityColors]}`;
-    }
-    
-    return `${base} bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200`;
-  };
-  
-  return <span className={`${getClasses()} ${className}`}>{value}</span>;
-};
-
-const Avatar: React.FC<{ user: UserType; size?: 'sm' | 'md' | 'lg' }> = ({ user, size = 'md' }) => {
-  const sizeClasses = {
-    sm: 'w-6 h-6 text-sm',
-    md: 'w-8 h-8 text-base',
-    lg: 'w-10 h-10 text-lg'
-  };
-  
-  return (
-    <div className={`${sizeClasses[size]} rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center font-medium text-blue-600 dark:text-blue-300`}>
-      {user.name?.charAt(0).toUpperCase() || '?'}
-    </div>
-  );
-};
-
+// Main TasksPage Component
 export const TasksPage: React.FC = () => {
-  // Store hooks
-  const { selectedTaskId, setSelectedTaskId, taskFilters, setTaskFilters } = useTasks();
-  const { getEffectiveTheme } = useTheme();
-  const isDarkMode = getEffectiveTheme() === 'dark';
-  
-  // Local state
-  const [activeTab, setActiveTab] = useState<'info' | 'documents' | 'qa'>('info');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [newMessage, setNewMessage] = useState('');
-
-  // Query client
+  const { setCurrentView } = useUI();
   const queryClient = useQueryClient();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilters, setSelectedFilters] = useState<TaskFilters>({});
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAutomation, setShowAutomation] = useState(false);
+  const [showRelationships, setShowRelationships] = useState(false);
+  const [showProductivity, setShowProductivity] = useState(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
 
-  // Fetch tasks from API
+  React.useEffect(() => {
+    setCurrentView('tasks');
+  }, [setCurrentView]);
+
+  // Fetch tasks
   const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ['tasks', { status: statusFilter, priority: priorityFilter, search: searchQuery }],
-    queryFn: async () => {
-      const response = await api.tasks.getTasks({
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        priority: priorityFilter === 'all' ? undefined : priorityFilter,
-        search: searchQuery || undefined
-      });
-      return response;
-    },
-    staleTime: 30000, // 30 seconds
-  });
-
-  // Get selected task
-  const selectedTask = useMemo(() => {
-    return tasks.find((task: Task) => task.id === selectedTaskId);
-  }, [tasks, selectedTaskId]);
-
-  // Filtered tasks for display
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task: Task) => {
-      const matchesSearch = task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-      const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-      
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [tasks, searchQuery, statusFilter, priorityFilter]);
-
-  // Event Handlers
-  const handleTaskSelect = useCallback((task: Task) => {
-    setSelectedTaskId(task.id);
-  }, [setSelectedTaskId]);
-
-  const handleSendMessage = useCallback(async () => {
-    if (!newMessage.trim() || !selectedTask) return;
-    
-    try {
-      // Send question to AI
-      const response = await api.qa.ask({
-        question: newMessage,
-        context: `Task: ${selectedTask.title}\nDescription: ${selectedTask.description}`
-      });
-      
-      // In a real implementation, you'd update the task's QA history
-      console.log('AI Response:', response);
-      setNewMessage('');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  }, [newMessage, selectedTask]);
-
-  // Create task mutation
-  const createTaskMutation = useMutation({
-    mutationFn: api.tasks.createTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
+    queryKey: ['tasks', selectedFilters],
+    queryFn: () => api.tasks.getTasks(selectedFilters),
   });
 
   // Update task mutation
   const updateTaskMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: number; updates: Partial<Task> }) =>
-      api.tasks.updateTask(id, updates),
+    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) =>
+      api.tasks.updateTask(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
@@ -193,462 +235,445 @@ export const TasksPage: React.FC = () => {
 
   // Delete task mutation
   const deleteTaskMutation = useMutation({
-    mutationFn: api.tasks.deleteTask,
+    mutationFn: (id: number) => api.tasks.deleteTask(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setSelectedTaskId(null);
     },
   });
 
-  // Status icons
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'new':
-      case 'todo': return <Clock className="w-4 h-4" />;
-      case 'in_progress': return <Play className="w-4 h-4" />;
-      case 'done': return <CheckCircle className="w-4 h-4" />;
-      case 'blocked': return <Pause className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+  // Filter tasks based on search
+  const filteredTasks = useMemo(() => {
+    let filtered = tasks;
+
+    if (searchQuery) {
+      filtered = filtered.filter(task =>
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.owner?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }, [tasks, searchQuery]);
+
+  const handleStatusChange = (id: number, status: Task['status']) => {
+    updateTaskMutation.mutate({ id, data: { status } });
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setShowCreateModal(true);
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm('Are you sure you want to delete this task?')) {
+      deleteTaskMutation.mutate(id);
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const handleFilterChange = (key: keyof TaskFilters, value: string[]) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [key]: value.length > 0 ? value : undefined
+    }));
   };
 
-  if (isLoading) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex-1 flex items-center justify-center"
-      >
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading tasks...</p>
-        </div>
-      </motion.div>
-    );
-  }
+  // Get task counts by status
+  const taskCounts = useMemo(() => {
+    return tasks.reduce((acc, task) => {
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [tasks]);
+
+  // Virtual scrolling configuration
+  const TASK_CARD_HEIGHT = 180; // Approximate height of a task card
+  const MAX_CONTAINER_HEIGHT = 800; // Maximum height before scrolling
+  const containerHeight = useVirtualizedListHeight(
+    MAX_CONTAINER_HEIGHT,
+    TASK_CARD_HEIGHT,
+    filteredTasks.length,
+    24 // gap between items
+  );
 
   if (error) {
     return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex-1 flex items-center justify-center"
-      >
+      <div className="h-full flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Failed to load tasks
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Please try refreshing the page.
-          </p>
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">Failed to load tasks</h3>
+          <p className="text-muted-foreground">Please try refreshing the page</p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex-1 flex h-full"
-    >
-      {/* Task List */}
-      <div className="w-1/3 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="h-full flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex-shrink-0 border-b border-border bg-card/50">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Tasks ({filteredTasks.length})
-            </h1>
-            <Button 
-              size="sm" 
-              onClick={() => createTaskMutation.mutate({
-                title: 'New Task',
-                description: 'Task description'
-              })}
-              disabled={createTaskMutation.isPending}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
-            </Button>
-          </div>
-          
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          
-          {/* Filters */}
-          <div className="flex gap-2 mb-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="new">New</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-              <option value="blocked">Blocked</option>
-            </select>
-            
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Priority</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex gap-1">
-              <Button
-                variant={viewMode === 'cards' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setViewMode('cards')}
-                className="p-2"
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="p-2"
-              >
-                <List className="w-4 h-4" />
-              </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+              <p className="text-muted-foreground">
+                Manage your tasks and track progress
+              </p>
             </div>
-          </div>
-        </div>
-        
-        {/* Task Cards */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <AnimatePresence>
-            {filteredTasks.map((task: Task) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleTaskSelect(task)}
-                className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-                  selectedTask?.id === task.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(task.status || 'new')}
-                    <Badge variant="status" value={task.status || 'new'} />
-                  </div>
-                  <Badge variant="priority" value={task.priority || 'medium'} />
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                  {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={() => setShowAutomation(!showAutomation)}
+                  className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Assistant
+                  {showAutomation ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
                 
-                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
-                  {task.title}
-                </h3>
-                
-                <p className="text-sm mb-3 line-clamp-2 text-gray-600 dark:text-gray-300">
-                  {task.description}
-                </p>
-                
-                <div className="flex items-center justify-between mb-3">
-                  {task.assignee && <Avatar user={task.assignee} size="sm" />}
-                  {task.due_date && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Due: {new Date(task.due_date).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                
-                {task.tags && task.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {task.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="tag" value={tag} />
-                    ))}
-                    {task.tags.length > 3 && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        +{task.tags.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Task Detail */}
-      <div className="flex-1 flex flex-col">
-        {selectedTask ? (
-          <motion.div
-            key={selectedTask.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex flex-col h-full"
-          >
-            {/* Task Header */}
-            <div className="p-6 border-b bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {selectedTask.title}
-                </h1>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm">Edit</Button>
-                  <Button 
-                    variant="danger" 
-                    size="sm"
-                    onClick={() => deleteTaskMutation.mutate(selectedTask.id)}
-                    disabled={deleteTaskMutation.isPending}
+                {/* Advanced Features Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowAdvancedMenu(!showAdvancedMenu)}
+                    className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    <MoreHorizontal className="h-4 w-4" />
+                    More
+                  </button>
+                  
+                  {showAdvancedMenu && (
+                    <div className="absolute right-0 top-12 w-64 bg-popover border border-border rounded-lg shadow-lg z-10">
+                      <div className="p-2">
+                        <button
+                          onClick={() => {
+                            setShowRelationships(!showRelationships);
+                            setShowAdvancedMenu(false);
+                          }}
+                          className="flex items-center gap-3 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <Network className="h-4 w-4" />
+                          <div className="text-left">
+                            <div className="font-medium">Task Relationships</div>
+                            <div className="text-xs text-muted-foreground">Dependencies and connections</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowProductivity(!showProductivity);
+                            setShowAdvancedMenu(false);
+                          }}
+                          className="flex items-center gap-3 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors"
+                        >
+                          <Rocket className="h-4 w-4" />
+                          <div className="text-left">
+                            <div className="font-medium">Productivity Tools</div>
+                            <div className="text-xs text-muted-foreground">Templates and quick actions</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              {/* Tabs */}
-              <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700">
-                {[
-                  { id: 'info', label: 'Task Info', icon: CheckSquare },
-                  { id: 'documents', label: 'Documents', icon: FileText, count: 0 },
-                  { id: 'qa', label: 'Q&A', icon: MessageCircle, count: 0 },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 pb-3 border-b-2 transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    <span className="font-medium">{tab.label}</span>
-                    {tab.count !== undefined && (
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${
-                        activeTab === tab.id
-                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                New Task
+              </button>
+            </div>
+          </div>
+
+          {/* Search and Controls */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center border border-border rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn(
+                  'p-2 rounded-md transition-colors',
+                  viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                )}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'p-2 rounded-md transition-colors',
+                  viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                )}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Filters */}
+            <button className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-muted transition-colors">
+              <Filter className="h-4 w-4" />
+              Filters
+            </button>
+          </div>
+
+          {/* Status Summary */}
+          <div className="flex items-center gap-6">
+            {Object.entries(statusConfig).map(([status, config]) => (
+              <div key={status} className="flex items-center gap-2">
+                <config.icon className={cn('h-4 w-4', config.color)} />
+                <span className="text-sm font-medium text-foreground">
+                  {config.label}: {taskCounts[status] || 0}
+                </span>
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Analytics Dashboard */}
+      {showAnalytics && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="border-b border-border bg-muted/30"
+        >
+          <div className="p-6">
+            <AnalyticsDashboard tasks={filteredTasks} />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Smart Automation */}
+      {showAutomation && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="border-b border-border bg-muted/30"
+        >
+          <div className="p-6">
+            <SmartAutomation 
+              tasks={filteredTasks} 
+              onApplyAutoTags={(taskId, tags) => {
+                // TODO: Implement auto-tag application
+                console.log('Apply tags to task', taskId, tags);
+              }}
+              onCreateSuggestedTask={(task) => {
+                // TODO: Implement suggested task creation
+                console.log('Create suggested task', task);
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Task Relationships */}
+      {showRelationships && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="border-b border-border bg-muted/30"
+        >
+          <div className="p-6">
+            <TaskRelationships 
+              tasks={filteredTasks}
+              onCreateDependency={(taskId, dependsOnId) => {
+                // TODO: Implement dependency creation
+                console.log('Create dependency', taskId, 'depends on', dependsOnId);
+              }}
+              onRemoveDependency={(taskId, dependsOnId) => {
+                // TODO: Implement dependency removal
+                console.log('Remove dependency', taskId, 'from', dependsOnId);
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Productivity Features */}
+      {showProductivity && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="border-b border-border bg-muted/30"
+        >
+          <div className="p-6">
+            <ProductivityFeatures 
+              tasks={filteredTasks}
+              onCreateFromTemplate={(template) => {
+                // TODO: Implement template-based task creation
+                console.log('Create tasks from template', template);
+              }}
+              onExecuteQuickAction={(action) => {
+                // TODO: Implement quick action execution
+                console.log('Execute quick action', action);
+              }}
+              onSaveAsTemplate={(tasks) => {
+                // TODO: Implement save as template
+                console.log('Save tasks as template', tasks);
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading tasks...</p>
             </div>
-
-            {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto">
-              <AnimatePresence mode="wait">
-                {activeTab === 'info' && (
-                  <motion.div
-                    key="info"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-6 space-y-6"
-                  >
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                          Description
-                        </label>
-                        <textarea
-                          value={selectedTask.description || ''}
-                          readOnly
-                          className="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white resize-none"
-                          rows={4}
-                        />
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                            Status
-                          </label>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(selectedTask.status || 'new')}
-                            <Badge variant="status" value={selectedTask.status || 'new'} />
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                            Priority
-                          </label>
-                          <Badge variant="priority" value={selectedTask.priority || 'medium'} />
-                        </div>
-                        
-                        {selectedTask.assignee && (
-                          <div>
-                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                              Assignee
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <Avatar user={selectedTask.assignee} />
-                              <span className="text-gray-900 dark:text-white">
-                                {selectedTask.assignee.name}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedTask.due_date && (
-                          <div>
-                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                              Due Date
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-500" />
-                              <span className="text-gray-900 dark:text-white">
-                                {new Date(selectedTask.due_date).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {selectedTask.tags && selectedTask.tags.length > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                          Tags
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedTask.tags.map((tag) => (
-                            <Badge key={tag} variant="tag" value={tag} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
-                {activeTab === 'documents' && (
-                  <motion.div
-                    key="documents"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-6"
-                  >
-                    {/* Upload Area */}
-                    <div className="border-2 border-dashed rounded-xl p-8 text-center mb-6 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
-                      <Upload className="w-12 h-12 mx-auto mb-4 text-gray-500 dark:text-gray-400" />
-                      <p className="text-lg font-medium mb-2 text-gray-900 dark:text-white">
-                        Drop files here or click to upload
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Support for PDF, DOC, XLSX, PNG, JPG files up to 10MB
-                      </p>
-                      <Button className="mt-4">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Choose Files
-                      </Button>
-                    </div>
-
-                    {/* Placeholder for future document list */}
-                    <div className="text-center py-8">
-                      <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
-                      <p className="text-gray-500 dark:text-gray-400">No documents uploaded yet</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {activeTab === 'qa' && (
-                  <motion.div
-                    key="qa"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="flex flex-col h-full"
-                  >
-                    {/* Placeholder messages */}
-                    <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-                      <div className="text-center py-8">
-                        <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
-                        <p className="text-gray-500 dark:text-gray-400">No conversations yet</p>
-                        <p className="text-sm text-gray-400 dark:text-gray-500">Ask a question to get started</p>
-                      </div>
-                    </div>
-
-                    {/* Message Input */}
-                    <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <textarea
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Ask a question about this task..."
-                            className="w-full p-3 rounded-lg border resize-none bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows={2}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <Button variant="secondary" size="sm" className="p-2">
-                            <Paperclip className="w-4 h-4" />
-                          </Button>
-                          <Button onClick={handleSendMessage} disabled={!newMessage.trim()} className="p-2">
-                            <Send className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <CheckSquare className="h-16 w-16 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {searchQuery ? 'No tasks found' : 'No tasks yet'}
+            </h3>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              {searchQuery
+                ? 'No tasks match your search criteria. Try adjusting your search terms.'
+                : 'Get started by creating your first task to track your work.'}
+            </p>
+            <div className="space-y-4">
+            <button
+              onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+                Create First Task
+                </button>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">Or try our smart features:</p>
+                  <div className="flex justify-center gap-2">
+                    <button
+                      onClick={() => setShowAnalytics(!showAnalytics)}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs border border-border rounded-md hover:bg-muted transition-colors"
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      View Analytics
+                    </button>
+                    <button
+                      onClick={() => setShowAutomation(!showAutomation)}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs border border-border rounded-md hover:bg-muted transition-colors"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      AI Suggestions
+                    </button>
+                    <button
+                      onClick={() => setShowRelationships(!showRelationships)}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs border border-border rounded-md hover:bg-muted transition-colors"
+                    >
+                      <Network className="h-3 w-3" />
+                      Task Relations
+                    </button>
+                    <button
+                      onClick={() => setShowProductivity(!showProductivity)}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs border border-border rounded-md hover:bg-muted transition-colors"
+                    >
+                      <Rocket className="h-3 w-3" />
+                      Templates
+                    </button>
+                  </div>
+                </div>
+              </div>
+          </div>
+        ) : viewMode === 'grid' ? (
+          <motion.div
+            layout
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            <AnimatePresence>
+              {filteredTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
+                />
+              ))}
+            </AnimatePresence>
           </motion.div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex-1 flex items-center justify-center"
-          >
-            <div className="text-center">
-              <CheckSquare className="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
-              <h2 className="text-xl font-semibold mb-2 text-gray-600 dark:text-gray-300">
-                Select a task to view details
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400">
-                Choose a task from the list to see its information, documents, and Q&A history.
-              </p>
-            </div>
-          </motion.div>
+          // Use virtualized list for list view when there are many tasks
+          <VirtualizedTaskList
+            tasks={filteredTasks}
+            itemHeight={TASK_CARD_HEIGHT}
+            containerHeight={containerHeight}
+            renderTask={(task, index) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+              />
+            )}
+            className="w-full"
+            enableAnimations={filteredTasks.length <= 50} // Disable animations for very large lists
+          />
         )}
       </div>
-    </motion.div>
+
+      {/* Create/Edit Task Modal - TODO: Implement */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4">
+              {editingTask ? 'Edit Task' : 'Create New Task'}
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Task creation form will be implemented here.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingTask(null);
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingTask(null);
+                }}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+              >
+                {editingTask ? 'Save Changes' : 'Create Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

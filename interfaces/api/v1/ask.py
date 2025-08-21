@@ -2,21 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Optional
 
 from ..schemas.schemas import AskRequest, AskResponse
-from ..services.document_service import DocumentService
-from ..services.task_service import TaskService
-from ..core.exceptions import ValidationException, LLMException
-from ..config import settings
-from ..logging_config import get_logger
-from ..llm_client import LLMClient
+from domain.services.document_service import DocumentService
+from domain.services.task_service import TaskService
+from domain.entities.exceptions import ValidationException, LLMException
+from shared.config.settings import settings
+import logging
+from app.dependencies import container
 
 router = APIRouter()
-document_service = DocumentService()
-task_service = TaskService()
-llm_client = LLMClient()
-logger = get_logger(__name__)
+document_service = DocumentService(
+    document_repository=container.document_repository,
+    llm_client=container.llm_client
+)
+task_service = TaskService(
+    task_repository=container.task_repository
+)
+logger = logging.getLogger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    from ..security import validate_api_key_header
+    from infrastructure.security.security import validate_api_key_header
     validated_key = validate_api_key_header(x_api_key)
     if validated_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
@@ -32,7 +36,7 @@ async def ask_question(
     """
     try:
         # Search for relevant documents using service layer
-        relevant_docs = await document_service.search_documents_by_similarity(
+        relevant_docs = document_service.search_documents_by_similarity(
             request.question,
             top_k=request.top_k
         )
@@ -84,7 +88,7 @@ async def ask_question(
         
         # Add related tasks using service layer
         doc_ids = [str(doc["id"]) for doc in relevant_docs]
-        all_tasks = await task_service.get_tasks(limit=50)
+        all_tasks = task_service.get_tasks(limit=50)
         
         # Filter tasks related to these documents
         related_tasks = [
@@ -106,7 +110,7 @@ async def ask_question(
         context = "\n".join(context_parts)
         
         # Generate answer using LLM
-        answer_result = await llm_client.answer_question(request.question, context)
+        answer_result = await container.llm_client.answer_question(request.question, context)
         
         logger.info(
             "Question answered successfully",

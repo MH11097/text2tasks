@@ -14,9 +14,10 @@ from ..connection import SessionLocal
 class TaskRepository(ITaskRepository):
     """SQLAlchemy implementation of task repository"""
     
-    async def create(self, task: TaskEntity) -> TaskEntity:
+    def create(self, task: TaskEntity) -> TaskEntity:
         """Create a new task"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             db_task = Task(
                 title=task.title,
                 status=task.status,
@@ -27,26 +28,42 @@ class TaskRepository(ITaskRepository):
                 source_doc_id=task.source_doc_id
             )
             db.add(db_task)
-            await db.flush()
+            db.flush()
             
             # Convert back to entity
             task.id = db_task.id
             task.created_at = db_task.created_at
             task.updated_at = db_task.updated_at
             
-            await db.commit()
+            db.commit()
             return task
+        finally:
+            db.close()
     
-    async def get_by_id(self, task_id: int) -> Optional[TaskEntity]:
+    def get_by_id(self, task_id: int) -> Optional[TaskEntity]:
         """Get task by ID"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             db_task = db.query(Task).filter(Task.id == task_id).first()
             if not db_task:
                 return None
             
-            return TaskEntity.from_orm(db_task)
+            return TaskEntity(
+                id=db_task.id,
+                title=db_task.title,
+                status=db_task.status,
+                due_date=db_task.due_date,
+                owner=db_task.owner,
+                blockers=db_task.blockers or [],
+                project_hint=db_task.project_hint,
+                source_doc_id=db_task.source_doc_id,
+                created_at=db_task.created_at,
+                updated_at=db_task.updated_at
+            )
+        finally:
+            db.close()
     
-    async def get_tasks(
+    def get_tasks(
         self,
         status_filter: Optional[TaskStatus] = None,
         owner_filter: Optional[str] = None,
@@ -54,7 +71,8 @@ class TaskRepository(ITaskRepository):
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get tasks with filters"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             query = db.query(Task).join(Document)
             
             # Apply filters
@@ -80,15 +98,18 @@ class TaskRepository(ITaskRepository):
                     "blockers": task.blockers or [],
                     "project_hint": task.project_hint,
                     "source_doc_id": str(task.source_doc_id),
-                    "created_at": task.created_at.isoformat(),
-                    "updated_at": task.updated_at.isoformat()
+                    "created_at": task.created_at.isoformat() if task.created_at else None,
+                    "updated_at": task.updated_at.isoformat() if task.updated_at else None
                 })
             
             return results
+        finally:
+            db.close()
     
-    async def update(self, task: TaskEntity) -> TaskEntity:
+    def update(self, task: TaskEntity) -> TaskEntity:
         """Update task"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             db_task = db.query(Task).filter(Task.id == task.id).first()
             if not db_task:
                 raise ValueError(f"Task {task.id} not found")
@@ -101,12 +122,27 @@ class TaskRepository(ITaskRepository):
             db_task.blockers = task.blockers
             db_task.project_hint = task.project_hint
             
-            await db.commit()
-            return TaskEntity.from_orm(db_task)
+            db.commit()
+            
+            return TaskEntity(
+                id=db_task.id,
+                title=db_task.title,
+                status=db_task.status,
+                due_date=db_task.due_date,
+                owner=db_task.owner,
+                blockers=db_task.blockers or [],
+                project_hint=db_task.project_hint,
+                source_doc_id=db_task.source_doc_id,
+                created_at=db_task.created_at,
+                updated_at=db_task.updated_at
+            )
+        finally:
+            db.close()
     
-    async def get_counts_by_status(self) -> Dict[str, int]:
+    def get_counts_by_status(self) -> Dict[str, int]:
         """Get task counts grouped by status"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             counts = {
                 "new": db.query(Task).filter(Task.status == "new").count(),
                 "in_progress": db.query(Task).filter(Task.status == "in_progress").count(),
@@ -114,10 +150,13 @@ class TaskRepository(ITaskRepository):
                 "done": db.query(Task).filter(Task.status == "done").count(),
             }
             return counts
+        finally:
+            db.close()
     
-    async def get_overdue_tasks(self) -> List[Dict[str, Any]]:
+    def get_overdue_tasks(self) -> List[Dict[str, Any]]:
         """Get overdue tasks"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             today = date.today()
             overdue_tasks = db.query(Task).filter(
                 Task.due_date.isnot(None),
@@ -142,14 +181,19 @@ class TaskRepository(ITaskRepository):
                     continue  # Skip invalid date formats
             
             return results
+        finally:
+            db.close()
     
-    async def delete(self, task_id: int) -> bool:
+    def delete(self, task_id: int) -> bool:
         """Delete task"""
-        async with SessionLocal() as db:
+        db = SessionLocal()
+        try:
             db_task = db.query(Task).filter(Task.id == task_id).first()
             if not db_task:
                 return False
             
             db.delete(db_task)
-            await db.commit()
+            db.commit()
             return True
+        finally:
+            db.close()

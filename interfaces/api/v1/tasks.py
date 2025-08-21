@@ -1,19 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from typing import Optional, List
 
-from ..schemas import TaskResponse, TaskUpdate
-from ..services.task_service import TaskService
-from ..core.types import TaskStatus
-from ..core.exceptions import TaskNotFoundException, ValidationException
-from ..config import settings
-from ..logging_config import get_logger
+from ..schemas.schemas import TaskResponse, TaskUpdate
+from domain.services.task_service import TaskService
+from domain.entities.types import TaskStatus
+from domain.entities.exceptions import TaskNotFoundException, ValidationException
+from shared.config.settings import settings
+import logging
+from app.dependencies import container
 
 router = APIRouter()
-task_service = TaskService()
-logger = get_logger(__name__)
+task_service = TaskService(
+    task_repository=container.task_repository
+)
+logger = logging.getLogger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    from ..security import validate_api_key_header
+    from infrastructure.security.security import validate_api_key_header
     validated_key = validate_api_key_header(x_api_key)
     if validated_key != settings.api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
@@ -48,7 +51,7 @@ async def list_tasks(
             status_filter = TaskStatus(status)
         
         # Get tasks using service layer
-        tasks = await task_service.get_tasks(
+        tasks = task_service.get_tasks(
             status_filter=status_filter,
             owner_filter=owner,
             limit=200
@@ -95,7 +98,7 @@ async def update_task(
         task_id_int = int(task_id)
         
         # Update task using service layer
-        updated_task = await task_service.update_task(
+        updated_task = task_service.update_task(
             task_id=task_id_int,
             status=task_update.status,
             owner=task_update.owner,

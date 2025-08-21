@@ -1,26 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Layout components
+// Layout components (keep these as regular imports as they're needed immediately)
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 
-// Page components
-import { DashboardPage } from '@/pages/DashboardPage';
-import { TasksPage } from '@/pages/TasksPage';
-import { ResourcesPage } from '@/pages/ResourcesPage';
-import { QAPage } from '@/pages/QAPage';
-import { IngestPage } from '@/pages/IngestPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
+// Lazy load page components for better performance
+const TasksPage = lazy(() => import('@/pages/TasksPage').then(m => ({ default: m.TasksPage })));
+const DocumentsPage = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
+const DocumentDetailPage = lazy(() => import('@/pages/DocumentDetailPage').then(m => ({ default: m.DocumentDetailPage })));
+const QAPage = lazy(() => import('@/pages/QAPage').then(m => ({ default: m.QAPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 // Hooks and stores
 import { useAppStore, useTheme, appActions } from '@/stores/app-store';
 import { useSystemStatus } from '@/hooks/useSystemStatus';
 
-// Utilities
-import { cn } from '@/utils/cn';
+// Utilities (cn utility will be added when needed)
 
 // Theme effect to apply dark/light mode
 function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -132,27 +130,28 @@ function App() {
   }, []);
 
   // System status monitoring (with error handling)
-  let systemStatus = null;
-  let systemError = false;
-  
-  try {
-    const statusQuery = useSystemStatus();
-    systemStatus = statusQuery.data;
-    systemError = statusQuery.isError;
-  } catch (error) {
-    console.warn('System status monitoring failed:', error);
-    systemError = false; // Don't block app if system status fails
-  }
+  // Use optional chaining and default values to prevent hooks from failing
+  const {
+    data: systemStatus = null,
+    error: systemStatusError = null
+  } = useSystemStatus() || {};
 
-  // Show system-wide error if critical services are down
+  // Log system status errors but don't block the app
   useEffect(() => {
-    if (systemError || systemStatus?.status === 'down') {
+    if (systemStatusError) {
+      console.warn('System status monitoring failed:', systemStatusError);
+    }
+  }, [systemStatusError]);
+
+  // Show system-wide error only if critical services are down (not for connection failures)
+  useEffect(() => {
+    if (systemStatus?.status === 'down') {
       appActions.showError(
         'System services are currently unavailable. Please try again later.',
         'Service Unavailable'
       );
     }
-  }, [systemError, systemStatus]);
+  }, [systemStatus]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -187,9 +186,8 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Show loading screen during initial app load  
-  // Temporary bypass for debugging
-  const shouldShowLoading = false; // isLoading;
+  // Show loading screen during initial app load
+  const shouldShowLoading = isLoading;
   
   if (shouldShowLoading) {
     return <LoadingScreen />;
@@ -220,21 +218,36 @@ function App() {
       <div className="h-screen bg-background text-foreground overflow-hidden">
         <AppLayout>
           <AnimatedPage>
-            <Routes>
-              {/* Default redirect to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              
-              {/* Main application routes */}
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/tasks/*" element={<TasksPage />} />
-              <Route path="/resources/*" element={<ResourcesPage />} />
-              <Route path="/qa" element={<QAPage />} />
-              <Route path="/ingest" element={<IngestPage />} />
-              <Route path="/settings/*" element={<SettingsPage />} />
-              
-              {/* 404 page */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
+            <Suspense fallback={
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading page...</p>
+                </div>
+              </div>
+            }>
+              <Routes>
+                {/* Default redirect to tasks (new main page) */}
+                <Route path="/" element={<Navigate to="/tasks" replace />} />
+                
+                {/* Redirect old routes to new structure */}
+                <Route path="/dashboard" element={<Navigate to="/tasks" replace />} />
+                <Route path="/resources/*" element={<Navigate to="/documents" replace />} />
+                <Route path="/ingest" element={<Navigate to="/documents" replace />} />
+                
+                {/* Main application routes */}
+                <Route path="/tasks/*" element={<TasksPage />} />
+                <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/documents/:id" element={<DocumentDetailPage />} />
+                <Route path="/qa" element={<QAPage />} />
+                
+                {/* Keep settings for now */}
+                <Route path="/settings/*" element={<SettingsPage />} />
+                
+                {/* 404 page */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
           </AnimatedPage>
         </AppLayout>
       </div>

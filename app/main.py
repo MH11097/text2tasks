@@ -1,21 +1,20 @@
 """Main application entry point with Clean Architecture"""
 
 from fastapi import FastAPI, Depends, HTTPException, status, Header
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import logging
 
 from shared.config.settings import settings
 from infrastructure.logging.config import setup_logging
+from infrastructure.logging.middleware import RequestLoggingMiddleware, ErrorLoggingMiddleware
 from infrastructure.database.connection import create_tables, add_indexes
 from .dependencies import container
 
 # Import API routes
 from interfaces.api.v1.health import router as health_router
-# from interfaces.api.v1.ingest import router as ingest_router
-# from interfaces.api.v1.ask import router as ask_router
-# from interfaces.api.v1.tasks import router as tasks_router
+from interfaces.api.v1.ingest import router as ingest_router
+from interfaces.api.v1.ask import router as ask_router
+from interfaces.api.v1.tasks import router as tasks_router
 from interfaces.api.v1.status import router as status_router
 
 # Setup logging
@@ -44,31 +43,32 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
-if settings.debug:
-    from fastapi.middleware.cors import CORSMiddleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Add middleware
+from fastapi.middleware.cors import CORSMiddleware
+
+# Error logging middleware (first)
+app.add_middleware(ErrorLoggingMiddleware)
+
+# Request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# CORS middleware (last)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"] if settings.debug else ["https://your-frontend-domain.com"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # Include API routers
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
-# app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
-# app.include_router(ask_router, prefix="/api/v1", tags=["ask"])
-# app.include_router(tasks_router, prefix="/api/v1", tags=["tasks"])
+app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
+app.include_router(ask_router, prefix="/api/v1", tags=["ask"])
+app.include_router(tasks_router, prefix="/api/v1", tags=["tasks"])
 app.include_router(status_router, prefix="/api/v1", tags=["status"])
 
-# Static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/")
-async def root():
-    """Serve the main HTML page"""
-    return FileResponse("static/index.html")
+# API-only backend - no static file serving
 
 @app.get("/health")
 async def health_check():

@@ -32,14 +32,14 @@ echo "🐍 Python version:"
 python3 --version
 
 # Check if virtual environment exists
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "📦 Creating virtual environment..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install/upgrade dependencies
 echo "📚 Installing Python dependencies..."
@@ -87,7 +87,6 @@ echo ""
 echo "✅ Setup complete!"
 echo "=================="
 echo "🌐 Backend: http://localhost:8000"
-echo "📁 Static files: http://localhost:8000/static/"
 echo "🔗 API docs: http://localhost:8000/docs"
 
 if [ "$FRONTEND_AVAILABLE" = true ]; then

@@ -17,7 +17,7 @@ export interface User {
   name: string;
   email?: string;
   avatar?: string;
-  role?: string;
+  role?: UserRole;
 }
 
 // Task Types  
@@ -182,15 +182,6 @@ export interface ResourceStats {
     root_tasks: number;
     max_hierarchy_depth: number;
   };
-}
-
-// User Types (for future enhancement)
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  avatar?: string;
-  role: UserRole;
 }
 
 export type UserRole = 'admin' | 'manager' | 'developer' | 'viewer';

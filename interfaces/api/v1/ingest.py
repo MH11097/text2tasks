@@ -17,7 +17,7 @@ document_service = DocumentService(
 logger = logging.getLogger(__name__)
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    from ..security import validate_api_key_header
+    from infrastructure.security.security import validate_api_key_header
     
     validated_key = validate_api_key_header(x_api_key)
     

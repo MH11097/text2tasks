@@ -9,17 +9,17 @@ class ITaskRepository(ABC):
     """Interface for task repository operations"""
     
     @abstractmethod
-    async def create(self, task: TaskEntity) -> TaskEntity:
+    def create(self, task: TaskEntity) -> TaskEntity:
         """Create a new task"""
         pass
     
     @abstractmethod
-    async def get_by_id(self, task_id: int) -> Optional[TaskEntity]:
+    def get_by_id(self, task_id: int) -> Optional[TaskEntity]:
         """Get task by ID"""
         pass
     
     @abstractmethod
-    async def get_tasks(
+    def get_tasks(
         self,
         status_filter: Optional[TaskStatus] = None,
         owner_filter: Optional[str] = None,
@@ -30,21 +30,21 @@ class ITaskRepository(ABC):
         pass
     
     @abstractmethod
-    async def update(self, task: TaskEntity) -> TaskEntity:
+    def update(self, task: TaskEntity) -> TaskEntity:
         """Update task"""
         pass
     
     @abstractmethod
-    async def get_counts_by_status(self) -> Dict[str, int]:
+    def get_counts_by_status(self) -> Dict[str, int]:
         """Get task counts grouped by status"""
         pass
     
     @abstractmethod
-    async def get_overdue_tasks(self) -> List[Dict[str, Any]]:
+    def get_overdue_tasks(self) -> List[Dict[str, Any]]:
         """Get overdue tasks"""
         pass
     
     @abstractmethod
-    async def delete(self, task_id: int) -> bool:
+    def delete(self, task_id: int) -> bool:
         """Delete task"""
         pass

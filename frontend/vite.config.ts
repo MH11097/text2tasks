@@ -46,12 +46,12 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, '/api')
       }
     }
   },
@@ -61,11 +61,30 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // Core React libraries
           vendor: ['react', 'react-dom'],
+          
+          // UI and animation libraries
           ui: ['lucide-react', 'framer-motion'],
+          
+          // Routing
           router: ['react-router-dom'],
+          
+          // State management and data fetching
           query: ['@tanstack/react-query'],
-          form: ['react-hook-form', '@hookform/resolvers', 'zod']
+          store: ['zustand'],
+          
+          // Form handling
+          form: ['react-hook-form', '@hookform/resolvers', 'zod'],
+          
+          // Charts and visualization
+          charts: ['recharts'],
+          
+          // Analytics components (separate chunk for heavy components)
+          analytics: [/src\/components\/analytics/],
+          
+          // Utils and common components
+          utils: [/src\/utils/, /src\/components\/common/]
         }
       }
     }

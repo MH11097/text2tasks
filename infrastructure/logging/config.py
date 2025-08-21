@@ -1,8 +1,10 @@
 import logging
 import json
 import sys
+import os
 from datetime import datetime
 from typing import Any, Dict
+from logging.handlers import RotatingFileHandler
 from pythonjsonlogger import jsonlogger
 
 from shared.config.settings import settings
@@ -46,6 +48,10 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 def setup_logging():
     """Configure structured logging for the application."""
     
+    # Ensure logs directory exists
+    log_dir = "logs/backend"
+    os.makedirs(log_dir, exist_ok=True)
+    
     # Create root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG if settings.debug else logging.INFO)
@@ -54,26 +60,68 @@ def setup_logging():
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Create console handler
-    handler = logging.StreamHandler(sys.stdout)
-    
-    # Set up JSON formatter
-    formatter = CustomJsonFormatter(
+    # Create JSON formatter
+    json_formatter = CustomJsonFormatter(
         fmt='%(timestamp)s %(level)s %(name)s %(message)s'
     )
-    handler.setFormatter(formatter)
     
-    # Add context filter
-    handler.addFilter(RequestContextFilter())
+    # Console handler (for development)
+    if settings.debug:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(json_formatter)
+        console_handler.addFilter(RequestContextFilter())
+        root_logger.addHandler(console_handler)
     
-    # Add handler to root logger
-    root_logger.addHandler(handler)
+    # File handlers with rotation
+    # Main application log
+    app_handler = RotatingFileHandler(
+        filename=f"{log_dir}/app.log",
+        maxBytes=10*1024*1024,  # 10MB
+        backupCount=10,
+        encoding='utf-8'
+    )
+    app_handler.setFormatter(json_formatter)
+    app_handler.addFilter(RequestContextFilter())
+    app_handler.setLevel(logging.INFO)
+    root_logger.addHandler(app_handler)
+    
+    # Error log
+    error_handler = RotatingFileHandler(
+        filename=f"{log_dir}/error.log",
+        maxBytes=10*1024*1024,  # 10MB
+        backupCount=10,
+        encoding='utf-8'
+    )
+    error_handler.setFormatter(json_formatter)
+    error_handler.addFilter(RequestContextFilter())
+    error_handler.setLevel(logging.ERROR)
+    root_logger.addHandler(error_handler)
+    
+    # Debug log (only in debug mode)
+    if settings.debug:
+        debug_handler = RotatingFileHandler(
+            filename=f"{log_dir}/debug.log",
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
+        debug_handler.setFormatter(json_formatter)
+        debug_handler.addFilter(RequestContextFilter())
+        debug_handler.setLevel(logging.DEBUG)
+        root_logger.addHandler(debug_handler)
     
     # Configure specific loggers
     logging.getLogger("uvicorn.access").setLevel(logging.INFO)
     logging.getLogger("sqlalchemy.engine").setLevel(
         logging.INFO if settings.debug else logging.WARNING
     )
+    
+    # Log startup message
+    root_logger.info("Logging system initialized", extra={
+        "log_dir": log_dir,
+        "debug_mode": settings.debug,
+        "handlers": len(root_logger.handlers)
+    })
     
     return root_logger
 

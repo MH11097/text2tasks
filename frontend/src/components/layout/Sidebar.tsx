@@ -35,32 +35,21 @@ interface NavSection {
 
 const navigationSections: NavSection[] = [
   {
-    items: [
-      {
-        id: 'dashboard',
-        label: 'Dashboard',
-        icon: Home,
-        path: '/dashboard',
-        description: 'Overview and insights',
-      },
-    ],
-  },
-  {
-    title: 'Work Management',
+    title: 'Main',
     items: [
       {
         id: 'tasks',
         label: 'Tasks',
         icon: CheckSquare,
         path: '/tasks',
-        description: 'Task hierarchy and management',
+        description: 'Task management and creation',
       },
       {
-        id: 'resources',
-        label: 'Resources',
+        id: 'documents',
+        label: 'Documents',
         icon: FileText,
-        path: '/resources',
-        description: 'Document and resource library',
+        path: '/documents',
+        description: 'Document library and management',
       },
       {
         id: 'qa',
@@ -68,44 +57,6 @@ const navigationSections: NavSection[] = [
         icon: MessageCircle,
         path: '/qa',
         description: 'AI-powered question answering',
-      },
-    ],
-  },
-  {
-    title: 'Content',
-    items: [
-      {
-        id: 'ingest',
-        label: 'Add Content',
-        icon: PlusCircle,
-        path: '/ingest',
-        description: 'Import documents and extract tasks',
-      },
-      {
-        id: 'knowledge',
-        label: 'Knowledge Base',
-        icon: BookOpen,
-        path: '/knowledge',
-        description: 'Organized information hub',
-      },
-    ],
-  },
-  {
-    title: 'Analytics',
-    items: [
-      {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: BarChart3,
-        path: '/analytics',
-        description: 'Performance metrics and insights',
-      },
-      {
-        id: 'reports',
-        label: 'Reports',
-        icon: Calendar,
-        path: '/reports',
-        description: 'Generated reports and summaries',
       },
     ],
   },
@@ -126,8 +77,11 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const isActiveRoute = (path: string) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard' || location.pathname === '/';
+    if (path === '/tasks') {
+      return location.pathname === '/tasks' || location.pathname === '/' || location.pathname === '/dashboard';
+    }
+    if (path === '/documents') {
+      return location.pathname.startsWith('/documents') || location.pathname.startsWith('/resources');
     }
     return location.pathname.startsWith(path);
   };

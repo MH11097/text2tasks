@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import logger from './logger';
 import type {
   ApiResponse,
   ApiError,
@@ -39,8 +40,15 @@ const createApiClient = (): AxiosInstance => {
   // Request interceptor for adding auth headers, request ID, etc.
   client.interceptors.request.use(
     (config) => {
-      // Add request ID for tracking
-      config.headers['X-Request-ID'] = crypto.randomUUID();
+      // Generate request ID for tracking
+      const requestId = crypto.randomUUID();
+      config.headers['X-Request-ID'] = requestId;
+      
+      // Store request metadata for logging
+      config.metadata = { 
+        startTime: Date.now(),
+        requestId 
+      };
       
       // Add API key if available
       const apiKey = import.meta.env.VITE_API_KEY;
@@ -51,9 +59,29 @@ const createApiClient = (): AxiosInstance => {
       // Add timestamp
       config.headers['X-Timestamp'] = new Date().toISOString();
       
+      // Log the request
+      logger.apiRequest(
+        config.method?.toUpperCase() || 'GET',
+        config.url || '',
+        requestId,
+        {
+          params: config.params,
+          headers: config.headers
+        }
+      );
+      
       return config;
     },
     (error) => {
+      logger.error('API request configuration error', {
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        },
+        component: 'api',
+        action: 'request_config_error'
+      });
       return Promise.reject(error);
     }
   );
@@ -61,28 +89,69 @@ const createApiClient = (): AxiosInstance => {
   // Response interceptor for handling common response patterns
   client.interceptors.response.use(
     (response: AxiosResponse) => {
-      // Log successful requests in development
+      const config = response.config;
+      const requestId = config.metadata?.requestId;
+      const duration = Date.now() - (config.metadata?.startTime || Date.now());
+
+      // Log successful response
+      logger.apiResponse(
+        config.method?.toUpperCase() || 'GET',
+        config.url || '',
+        response.status,
+        duration,
+        requestId,
+        {
+          responseSize: JSON.stringify(response.data).length,
+          responseHeaders: response.headers
+        }
+      );
+
+      // Log successful requests in development console
       if (import.meta.env.DEV) {
         console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url}`, {
           status: response.status,
           data: response.data,
           requestId: response.headers['x-request-id'],
+          duration: `${duration}ms`
         });
       }
       return response;
     },
     (error: AxiosError<ApiError>) => {
+      const config = error.config;
+      const requestId = config?.metadata?.requestId;
+      const duration = Date.now() - (config?.metadata?.startTime || Date.now());
+      
       // Enhanced error handling
       const errorData = error.response?.data;
       const errorMessage = errorData?.detail || error.message || 'An unexpected error occurred';
       
-      // Log errors in development
+      // Log error response
+      logger.apiResponse(
+        config?.method?.toUpperCase() || 'GET',
+        config?.url || '',
+        error.response?.status || 0,
+        duration,
+        requestId,
+        {
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          },
+          errorCode: error.code,
+          responseData: error.response?.data
+        }
+      );
+      
+      // Log errors in development console
       if (import.meta.env.DEV) {
         console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
           status: error.response?.status,
           message: errorMessage,
           data: errorData,
           requestId: error.response?.headers['x-request-id'],
+          duration: `${duration}ms`
         });
       }
       
@@ -126,7 +195,7 @@ export const healthApi = {
   check: async (): Promise<{ status: string }> => {
     return apiRequest({
       method: 'GET',
-      url: '/healthz',
+      url: '/v1/healthz',
     });
   },
 };
@@ -136,14 +205,14 @@ export const statusApi = {
   getStatus: async (): Promise<SystemStatus> => {
     return apiRequest({
       method: 'GET',
-      url: '/api/status',
+      url: '/v1/status',
     });
   },
   
   getResourceStats: async (): Promise<ResourceStats> => {
     return apiRequest({
       method: 'GET',
-      url: '/api/resources/stats',
+      url: '/v1/resources/stats',
     });
   },
 };
@@ -176,7 +245,7 @@ export const taskApi = {
     
     return apiRequest({
       method: 'GET',
-      url: `/tasks${params.toString() ? `?${params.toString()}` : ''}`,
+      url: `/v1/tasks${params.toString() ? `?${params.toString()}` : ''}`,
     });
   },
 
@@ -184,7 +253,7 @@ export const taskApi = {
   getTask: async (id: number): Promise<Task> => {
     return apiRequest({
       method: 'GET',
-      url: `/tasks/${id}`,
+      url: `/v1/tasks/${id}`,
     });
   },
 
@@ -192,7 +261,7 @@ export const taskApi = {
   createTask: async (data: TaskCreateRequest): Promise<Task> => {
     return apiRequest({
       method: 'POST',
-      url: '/tasks',
+      url: '/v1/tasks',
       data,
     });
   },
@@ -200,8 +269,8 @@ export const taskApi = {
   // Update task
   updateTask: async (id: number, data: TaskUpdateRequest): Promise<Task> => {
     return apiRequest({
-      method: 'PUT',
-      url: `/tasks/${id}`,
+      method: 'PATCH',
+      url: `/v1/tasks/${id}`,
       data,
     });
   },
@@ -210,7 +279,7 @@ export const taskApi = {
   deleteTask: async (id: number): Promise<void> => {
     return apiRequest({
       method: 'DELETE',
-      url: `/tasks/${id}`,
+      url: `/v1/tasks/${id}`,
     });
   },
 };
@@ -359,7 +428,7 @@ export const ingestApi = {
   ingestDocument: async (data: IngestRequest): Promise<IngestResponse> => {
     return apiRequest({
       method: 'POST',
-      url: '/ingest',
+      url: '/v1/ingest',
       data,
     });
   },
@@ -371,7 +440,7 @@ export const ingestApi = {
 
     return apiRequest({
       method: 'POST',
-      url: '/ingest/file',
+      url: '/v1/ingest/file',
       data: formData,
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -392,7 +461,7 @@ export const qaApi = {
   ask: async (data: AskRequest): Promise<AskResponse> => {
     return apiRequest({
       method: 'POST',
-      url: '/ask/enhanced',
+      url: '/v1/ask',
       data,
     });
   },
