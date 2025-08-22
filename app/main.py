@@ -16,6 +16,11 @@ from interfaces.api.v1.ingest import router as ingest_router
 from interfaces.api.v1.ask import router as ask_router
 from interfaces.api.v1.tasks import router as tasks_router
 from interfaces.api.v1.status import router as status_router
+from interfaces.api.v1.documents import router as documents_router
+from interfaces.api.v1.ai import router as ai_router
+from interfaces.api.v1.export import router as export_router
+from interfaces.api.v1.search import router as search_router
+from interfaces.api.v1.dependencies import router as dependencies_router
 
 # Setup logging
 setup_logging()
@@ -55,7 +60,7 @@ app.add_middleware(RequestLoggingMiddleware)
 # CORS middleware (last)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"] if settings.debug else ["https://your-frontend-domain.com"],
+    allow_origins=["http://localhost:3000", "http://localhost:5174"] if settings.debug else ["https://your-frontend-domain.com"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -66,6 +71,11 @@ app.include_router(health_router, prefix="/api/v1", tags=["health"])
 app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
 app.include_router(ask_router, prefix="/api/v1", tags=["ask"])
 app.include_router(tasks_router, prefix="/api/v1", tags=["tasks"])
+app.include_router(documents_router, prefix="/api/v1", tags=["documents"])
+app.include_router(ai_router, prefix="/api/v1", tags=["ai"])
+app.include_router(export_router, prefix="/api/v1", tags=["export"])
+app.include_router(search_router, prefix="/api/v1", tags=["search"])
+app.include_router(dependencies_router, prefix="/api/v1", tags=["dependencies"])
 app.include_router(status_router, prefix="/api/v1", tags=["status"])
 
 # API-only backend - no static file serving

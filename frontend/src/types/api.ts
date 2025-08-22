@@ -258,7 +258,7 @@ export interface AppState {
   error?: string;
 }
 
-export type AppView = 'dashboard' | 'tasks' | 'resources' | 'qa' | 'settings';
+export type AppView = 'dashboard' | 'tasks' | 'resources' | 'documents' | 'qa' | 'settings';
 
 // Form Types
 export interface FormState<T> {

@@ -54,7 +54,50 @@ class TaskResponse(BaseModel):
     status: str
     due_date: Optional[str]
     owner: Optional[str]
-    source_doc_id: str
+    source_doc_id: Optional[str]  # Made optional for manually created tasks
+
+class TaskCreateRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255, description="Task title")
+    description: Optional[str] = Field(None, max_length=2000, description="Task description")
+    priority: Optional[str] = Field("medium", pattern="^(low|medium|high|urgent)$", description="Task priority")
+    due_date: Optional[str] = Field(None, pattern="^[0-9]{4}-[0-9]{2}-[0-9]{2}$", description="Due date in YYYY-MM-DD format")
+    owner: Optional[str] = Field(None, max_length=100, description="Task owner")
+    document_ids: List[int] = Field(default_factory=list, description="List of document IDs to link to this task")
+    created_by: Optional[str] = Field(None, max_length=100, description="Who created the task")
+    
+    @validator('title')
+    def validate_title_content(cls, v):
+        from infrastructure.security.security import validate_text_input
+        return validate_text_input(v, max_length=255, field_name="title")
+    
+    @validator('description')
+    def validate_description_content(cls, v):
+        if v is not None:
+            from infrastructure.security.security import validate_text_input
+            return validate_text_input(v, max_length=2000, field_name="description")
+        return v
+    
+    @validator('priority')
+    def validate_priority_value(cls, v):
+        if v is not None:
+            valid_priorities = ["low", "medium", "high", "urgent"]
+            if v not in valid_priorities:
+                raise ValueError(f"Priority must be one of: {', '.join(valid_priorities)}")
+        return v
+    
+    @validator('owner')
+    def validate_owner_value(cls, v):
+        if v is not None:
+            from infrastructure.security.security import validate_owner_input
+            return validate_owner_input(v)
+        return v
+    
+    @validator('due_date')
+    def validate_due_date_value(cls, v):
+        if v is not None:
+            from infrastructure.security.security import validate_date_input
+            return validate_date_input(v)
+        return v
 
 class TaskUpdate(BaseModel):
     status: Optional[str] = Field(None, pattern="^(new|in_progress|blocked|done)$", description="Task status")
@@ -64,21 +107,21 @@ class TaskUpdate(BaseModel):
     @validator('status')
     def validate_status_value(cls, v):
         if v is not None:
-            from .security import validate_task_status
+            from infrastructure.security.security import validate_task_status
             return validate_task_status(v)
         return v
     
     @validator('owner')
     def validate_owner_value(cls, v):
         if v is not None:
-            from .security import validate_owner_input
+            from infrastructure.security.security import validate_owner_input
             return validate_owner_input(v)
         return v
     
     @validator('due_date')
     def validate_due_date_value(cls, v):
         if v is not None:
-            from .security import validate_date_input
+            from infrastructure.security.security import validate_date_input
             return validate_date_input(v)
         return v
 

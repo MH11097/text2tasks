@@ -24,6 +24,10 @@ class ITaskRepository(ABC):
         status_filter: Optional[TaskStatus] = None,
         owner_filter: Optional[str] = None,
         source_type_filter: Optional[SourceType] = None,
+        priority_filter: Optional[str] = None,
+        created_by_filter: Optional[str] = None,
+        sort_by: str = "updated_at",
+        sort_order: str = "desc",
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get tasks with filters"""
@@ -47,4 +51,61 @@ class ITaskRepository(ABC):
     @abstractmethod
     def delete(self, task_id: int) -> bool:
         """Delete task"""
+        pass
+    
+    @abstractmethod
+    def link_documents(self, task_id: int, document_ids: List[int], created_by: Optional[str] = None) -> bool:
+        """Link documents to a task"""
+        pass
+    
+    @abstractmethod
+    def unlink_documents(self, task_id: int, document_ids: List[int]) -> bool:
+        """Unlink documents from a task"""
+        pass
+    
+    @abstractmethod
+    def get_linked_documents(self, task_id: int) -> List[Dict[str, Any]]:
+        """Get documents linked to a task"""
+        pass
+    
+    @abstractmethod
+    def get_tasks_for_document(self, document_id: int) -> List[Dict[str, Any]]:
+        """Get tasks linked to a document"""
+        pass
+    
+    @abstractmethod
+    def link_tasks_to_document(self, document_id: int, task_ids: List[int], created_by: Optional[str] = None) -> bool:
+        """Link tasks to a document"""
+        pass
+    
+    @abstractmethod
+    def unlink_tasks_from_document(self, document_id: int, task_ids: List[int]) -> bool:
+        """Unlink tasks from a document"""
+        pass
+    
+    @abstractmethod
+    def create_dependency(self, dependent_task_id: int, prerequisite_task_id: int, 
+                         dependency_type: str = "blocks", description: Optional[str] = None, 
+                         created_by: Optional[str] = None) -> bool:
+        """Create a dependency between tasks"""
+        pass
+    
+    @abstractmethod
+    def remove_dependency(self, dependent_task_id: int, prerequisite_task_id: int) -> bool:
+        """Remove a dependency between tasks"""
+        pass
+    
+    @abstractmethod
+    def get_task_dependencies(self, task_id: int) -> List[Dict[str, Any]]:
+        """Get all tasks that this task depends on (prerequisites)"""
+        pass
+    
+    @abstractmethod
+    def get_dependent_tasks(self, task_id: int) -> List[Dict[str, Any]]:
+        """Get all tasks that depend on this task"""
+        pass
+    
+    @abstractmethod
+    def get_dependency_graph(self, task_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """Get the complete dependency graph for tasks"""
         pass

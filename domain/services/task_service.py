@@ -6,7 +6,8 @@ import logging
 
 from ..repositories.task_repository import ITaskRepository
 from ..entities.exceptions import TaskNotFoundException, ValidationException
-from ..entities.types import TaskStatus
+from ..entities.types import TaskStatus, TaskPriority
+from ..entities.task import TaskEntity
 from infrastructure.security.security import validate_task_status, validate_owner_input, validate_date_input
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,10 @@ class TaskService:
         status_filter: Optional[TaskStatus] = None,
         owner_filter: Optional[str] = None,
         source_type_filter: Optional[str] = None,
+        priority_filter: Optional[str] = None,
+        created_by_filter: Optional[str] = None,
+        sort_by: str = "updated_at",
+        sort_order: str = "desc",
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
@@ -31,6 +36,10 @@ class TaskService:
             status_filter=status_filter,
             owner_filter=owner_filter,
             source_type_filter=source_type_filter,
+            priority_filter=priority_filter,
+            created_by_filter=created_by_filter,
+            sort_by=sort_by,
+            sort_order=sort_order,
             limit=limit
         )
     
@@ -97,6 +106,70 @@ class TaskService:
             "status": updated_task.status,
             "due_date": updated_task.due_date,
             "owner": updated_task.owner,
-            "source_doc_id": str(updated_task.source_doc_id),
+            "source_doc_id": str(updated_task.source_doc_id) if updated_task.source_doc_id else None,
             "updated_fields": updated_fields
+        }
+    
+    def create_task(
+        self,
+        title: str,
+        description: Optional[str] = None,
+        priority: Optional[str] = None,
+        due_date: Optional[str] = None,
+        owner: Optional[str] = None,
+        source_doc_id: Optional[int] = None,
+        created_by: Optional[str] = None,
+        document_ids: List[int] = None
+    ) -> Dict[str, Any]:
+        """Create a new task with validation"""
+        
+        # Validate inputs
+        if not title or not title.strip():
+            raise ValidationException("Task title is required")
+        
+        if priority and priority not in ["low", "medium", "high", "urgent"]:
+            raise ValidationException("Invalid priority value")
+            
+        if owner:
+            validate_owner_input(owner)
+        if due_date:
+            validate_date_input(due_date)
+        
+        # Create task entity
+        task_entity = TaskEntity(
+            title=title.strip(),
+            description=description.strip() if description else None,
+            priority=priority or "medium",
+            due_date=due_date,
+            owner=owner,
+            source_doc_id=source_doc_id,
+            created_by=created_by,
+            status="new",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        # Save via repository
+        created_task = self.task_repository.create(task_entity)
+        
+        # Handle document links if provided
+        if document_ids:
+            try:
+                self.task_repository.link_documents(created_task.id, document_ids, created_by)
+                logger.info(f"Linked {len(document_ids)} documents to task {created_task.id}")
+            except Exception as e:
+                logger.warning(f"Failed to link documents to task {created_task.id}: {e}")
+        
+        return {
+            "id": str(created_task.id),
+            "title": created_task.title,
+            "description": created_task.description,
+            "status": created_task.status,
+            "priority": created_task.priority,
+            "due_date": created_task.due_date,
+            "owner": created_task.owner,
+            "source_doc_id": str(created_task.source_doc_id) if created_task.source_doc_id else None,
+            "created_by": created_task.created_by,
+            "created_at": created_task.created_at.isoformat() if created_task.created_at else None,
+            "linked_documents": len(document_ids) if document_ids else 0
         }

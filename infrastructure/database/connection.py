@@ -36,6 +36,12 @@ def add_indexes():
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_queue_status_created ON message_queue(status, created_at)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_message_queue_source_status ON message_queue(source_type, status)"))
             
+            # Task dependencies indexes
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_task_dependencies_dependent ON task_dependencies(dependent_task_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_task_dependencies_prerequisite ON task_dependencies(prerequisite_task_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(dependency_type)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_task_dependencies_unique ON task_dependencies(dependent_task_id, prerequisite_task_id)"))
+            
             conn.commit()
         except Exception as e:
             print(f"Index creation warning: {e}")

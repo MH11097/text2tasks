@@ -422,6 +422,81 @@ export const resourceApi = {
   },
 };
 
+// Documents API
+export const documentsApi = {
+  // Get all documents
+  getDocuments: async (limit?: number, offset?: number): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    
+    return apiRequest({
+      method: 'GET',
+      url: `/v1/documents${params.toString() ? `?${params.toString()}` : ''}`,
+    });
+  },
+
+  // Get document by ID
+  getDocument: async (id: number): Promise<any> => {
+    return apiRequest({
+      method: 'GET',
+      url: `/v1/documents/${id}`,
+    });
+  },
+
+  // Create new document
+  createDocument: async (data: { text: string; summary?: string; source?: string; source_type?: string }): Promise<any> => {
+    return apiRequest({
+      method: 'POST',
+      url: '/v1/documents',
+      data,
+    });
+  },
+
+  // Update document
+  updateDocument: async (id: number, data: any): Promise<any> => {
+    return apiRequest({
+      method: 'PUT',
+      url: `/v1/documents/${id}`,
+      data,
+    });
+  },
+
+  // Delete document
+  deleteDocument: async (id: number): Promise<void> => {
+    return apiRequest({
+      method: 'DELETE',
+      url: `/v1/documents/${id}`,
+    });
+  },
+
+  // Get tasks linked to document
+  getDocumentTasks: async (id: number): Promise<any[]> => {
+    return apiRequest({
+      method: 'GET',
+      url: `/v1/documents/${id}/tasks`,
+    });
+  },
+
+  // Link tasks to document
+  linkTasksToDocument: async (documentId: number, taskIds: number[]): Promise<any> => {
+    return apiRequest({
+      method: 'POST',
+      url: `/v1/documents/${documentId}/tasks`,
+      data: { task_ids: taskIds },
+    });
+  },
+
+  // Unlink tasks from document
+  unlinkTasksFromDocument: async (documentId: number, taskIds: number[]): Promise<any> => {
+    return apiRequest({
+      method: 'DELETE',
+      url: `/v1/documents/${documentId}/tasks`,
+      data: { task_ids: taskIds },
+    });
+  },
+};
+
 // Document Ingestion API
 export const ingestApi = {
   // Ingest document
@@ -441,6 +516,30 @@ export const ingestApi = {
     return apiRequest({
       method: 'POST',
       url: '/v1/ingest/file',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+  },
+
+  // Upload document file
+  uploadDocument: async (file: File, summary?: string, onProgress?: (progress: number) => void): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (summary) formData.append('summary', summary);
+    formData.append('source', 'upload');
+    formData.append('source_type', 'document');
+
+    return apiRequest({
+      method: 'POST',
+      url: '/v1/documents/upload',
       data: formData,
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -576,6 +675,7 @@ export const api = {
   tasks: taskApi,
   hierarchy: hierarchyApi,
   resources: resourceApi,
+  documents: documentsApi,
   ingest: ingestApi,
   qa: qaApi,
   search: searchApi,

@@ -24,6 +24,12 @@ class TaskStatus(str, Enum):
     BLOCKED = "blocked"
     DONE = "done"
 
+class TaskPriority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
 class MessageStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"

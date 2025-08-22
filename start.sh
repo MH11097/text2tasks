@@ -90,7 +90,7 @@ echo "🌐 Backend: http://localhost:8000"
 echo "🔗 API docs: http://localhost:8000/docs"
 
 if [ "$FRONTEND_AVAILABLE" = true ]; then
-    echo "⚛️  Frontend: http://localhost:5173"
+    echo "⚛️  Frontend: http://localhost:5174"
 fi
 
 echo ""

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     
     # Debug
     debug: bool = False
+    
+    # Logging
+    log_level: str = "info"
 
     class Config:
         env_file = ".env"

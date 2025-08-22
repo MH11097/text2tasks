@@ -121,3 +121,53 @@ class DocumentRepository(IDocumentRepository):
             db.delete(db_document)
             await db.commit()
             return True
+    
+    async def get_all_documents(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get all documents with pagination"""
+        db = SessionLocal()
+        try:
+            documents = db.query(Document).order_by(desc(Document.created_at)).offset(offset).limit(limit).all()
+            
+            return [
+                {
+                    "id": doc.id,
+                    "text": doc.text[:200] + "..." if len(doc.text) > 200 else doc.text,
+                    "summary": doc.summary,
+                    "source": doc.source,
+                    "source_type": doc.source_type,
+                    "created_at": doc.created_at.isoformat() if doc.created_at else None
+                }
+                for doc in documents
+            ]
+        finally:
+            db.close()
+    
+    async def create_document(self, text: str, summary: str = "", source: str = "manual", source_type: str = "document") -> Dict[str, Any]:
+        """Create a document with simple parameters"""
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            db_document = Document(
+                text=text,
+                summary=summary,
+                source=source,
+                source_type=source_type,
+                created_at=datetime.utcnow()
+            )
+            db.add(db_document)
+            db.flush()
+            
+            result = {
+                "id": str(db_document.id),
+                "text": db_document.text[:200] + "..." if len(db_document.text) > 200 else db_document.text,
+                "summary": db_document.summary,
+                "source": db_document.source,
+                "source_type": db_document.source_type,
+                "created_at": db_document.created_at.isoformat() if db_document.created_at else None
+            }
+            
+            db.commit()
+            return result
+        finally:
+            db.close()

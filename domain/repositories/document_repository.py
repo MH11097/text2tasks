@@ -47,3 +47,13 @@ class IDocumentRepository(ABC):
     async def delete(self, document_id: int) -> bool:
         """Delete document"""
         pass
+    
+    @abstractmethod
+    async def get_all_documents(self, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get all documents with pagination"""
+        pass
+    
+    @abstractmethod
+    async def create_document(self, text: str, summary: str = "", source: str = "manual", source_type: str = "document") -> Dict[str, Any]:
+        """Create a document with simple parameters"""
+        pass
